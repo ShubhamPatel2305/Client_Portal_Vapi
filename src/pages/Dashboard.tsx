@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { fetchVapiCalls, VapiCall } from '../services/vapiService';
 import {
   Calendar,
   Bell,
@@ -169,7 +170,25 @@ export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthKey());
   const { user } = useAuthStore();
   const { shouldRefresh, updateLastRefresh } = usePageStore();
+  const [calls, setCalls] = useState<VapiCall[]>([]);
+  const [loadingCalls, setLoadingCalls] = useState(false);
 
+  useEffect(() => {
+    const loadCalls = async () => {
+      setLoadingCalls(true);
+      try {
+        const callsData = await fetchVapiCalls();
+        setCalls(callsData);
+      } catch (error) {
+        console.error('Error loading calls:', error);
+        showToast('Failed to load calls', 'error');
+      } finally {
+        setLoadingCalls(false);
+      }
+    };
+  
+    loadCalls();
+  }, []);
   const getFirstName = (displayName: string | null) => {
     if (!displayName) return '';
     return displayName.split(' ')[0];
@@ -895,34 +914,56 @@ export default function Dashboard() {
                     <TableRow>
                       <TableHeaderCell>Phone Number</TableHeaderCell>
                       <TableHeaderCell>Status</TableHeaderCell>
-                      <TableHeaderCell>Duration</TableHeaderCell>
+                      <TableHeaderCell>Start Time</TableHeaderCell>
+                      <TableHeaderCell>Duration (s)</TableHeaderCell>
                       <TableHeaderCell>Cost</TableHeaderCell>
-                      <TableHeaderCell>Date</TableHeaderCell>
+                      <TableHeaderCell>Ended Reason</TableHeaderCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {data?.recentCalls
-                      .filter(call => {
-                        const matchesSearch = call.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase());
-                        const matchesFilter = filterStatus === 'all' || call.status === filterStatus;
-                        return matchesSearch && matchesFilter;
-                      })
-                      .map((call) => (
-                        <TableRow key={call.id} className="hover:bg-gray-50 cursor-pointer">
-                          <TableCell>{call.phoneNumber}</TableCell>
-                          <TableCell>
-                            <Badge color={
-                              call.status === 'completed' ? 'green' :
-                              call.status === 'failed' ? 'red' : 'yellow'
-                            }>
-                              {call.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{(call.duration / 60).toFixed(2)} min</TableCell>
-                          <TableCell>${call.cost.toFixed(2)}</TableCell>
-                          <TableCell>{formatDateTime(call.date)}</TableCell>
-                        </TableRow>
-                      ))}
+                    {loadingCalls ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center">
+                          <LoadingSpinner />
+                        </TableCell>
+                      </TableRow>
+                    ) : calls.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-gray-500">
+                          No calls found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      calls
+                        .filter(call => {
+                          const matchesSearch = (call.customer?.number || '').toLowerCase().includes(searchQuery.toLowerCase());
+                          const matchesFilter = filterStatus === 'all' || call.status.toLowerCase() === filterStatus;
+                          return matchesSearch && matchesFilter;
+                        })
+                        .map((call) => {
+                          const duration = call.startedAt && call.endedAt
+                            ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
+                            : null;
+
+                          return (
+                            <TableRow key={call.id} className="hover:bg-gray-50 cursor-pointer">
+                              <TableCell>{call.customer?.number || 'Unknown'}</TableCell>
+                              <TableCell>
+                                <Badge color={
+                                  call.status === 'completed' ? 'green' :
+                                  call.status === 'failed' ? 'red' : 'yellow'
+                                }>
+                                  {call.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{call.startedAt ? new Date(call.startedAt).toLocaleString() : '-'}</TableCell>
+                              <TableCell>{duration || '-'}</TableCell>
+                              <TableCell>${call.cost?.toFixed(2) || '-'}</TableCell>
+                              <TableCell>{call.endedReason || '-'}</TableCell>
+                            </TableRow>
+                          );
+                        })
+                    )}
                   </TableBody>
                 </Table>
               </Card>
