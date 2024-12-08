@@ -13,6 +13,10 @@ import {
   TrendingUp,
   TrendingDown,
   PhoneOff,
+  Phone,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -45,6 +49,7 @@ import {
 import ExportModal from '../components/modals/ExportModal';
 import ScheduleModal from '../components/modals/ScheduleModal';
 import AlertSettingsModal from '../components/modals/AlertSettingsModal';
+import CallDetailsModal from '../components/modals/CallDetailsModal';
 import { fetchDashboardData } from '../lib/api';
 import { Analytics } from '../lib/api/vapiService';
 import { useAuthStore } from '../stores/auth';
@@ -165,13 +170,23 @@ export default function Dashboard() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthKey());
-  const { user } = useAuthStore();
-  const { shouldRefresh, updateLastRefresh } = usePageStore();
   const [calls, setCalls] = useState<VapiCall[]>([]);
   const [loadingCalls, setLoadingCalls] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCall, setSelectedCall] = useState<VapiCall | null>(null);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [callFilters, setCallFilters] = useState({
+    status: 'all',
+    duration: 'all',
+    cost: 'all',
+    date: 'all'
+  });
+  const { user } = useAuthStore();
+  const { shouldRefresh, updateLastRefresh } = usePageStore();
+
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     const loadCalls = async () => {
@@ -189,6 +204,7 @@ export default function Dashboard() {
   
     loadCalls();
   }, []);
+
   const getFirstName = (displayName: string | null) => {
     if (!displayName) return '';
     return displayName.split(' ')[0];
@@ -232,17 +248,15 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch data on component mount and when shouldRefresh changes
   useEffect(() => {
     fetchInitialData();
-  }, []); // Run only on mount
+  }, []); 
 
-  // Handle refresh when shouldRefresh changes
   useEffect(() => {
     if (shouldRefresh('dashboard')) {
       refreshData();
     }
-  }, [shouldRefresh]); // Run when shouldRefresh changes
+  }, [shouldRefresh]); 
 
   if (loading) {
     return (
@@ -267,6 +281,71 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // Filter all calls first, then paginate
+  const filteredCalls = calls.filter(call => {
+    const matchesSearch = searchQuery === '' || 
+      (call.customer?.number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (call.analysis?.summary || '').toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = callFilters.status === 'all' || call.status.toLowerCase() === callFilters.status;
+    
+    const matchesDuration = callFilters.duration === 'all' || (() => {
+      const duration = Math.round(
+        (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000
+      );
+      switch(callFilters.duration) {
+        case 'very-short': return duration < 60; // < 1 minute
+        case 'short': return duration >= 60 && duration < 300; // 1-5 minutes
+        case 'medium': return duration >= 300; // > 5 minutes
+        default: return true;
+      }
+    })();
+
+    const matchesCost = callFilters.cost === 'all' || (() => {
+      const cost = call.cost;
+      switch(callFilters.cost) {
+        case 'very-low': return cost < 0.5; // < $0.5
+        case 'low': return cost >= 0.5 && cost < 5; // $0.5-$5
+        case 'medium': return cost >= 5; // > $5
+        default: return true;
+      }
+    })();
+
+    const matchesDate = callFilters.date === 'all' || (() => {
+      const callDate = new Date(call.startedAt);
+      const now = new Date();
+      
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      switch(callFilters.date) {
+        case 'today':
+          return callDate >= startOfToday;
+        case 'week':
+          return callDate >= startOfWeek;
+        case 'month':
+          return callDate >= startOfMonth;
+        default:
+          return true;
+      }
+    })();
+
+    return matchesSearch && matchesStatus && matchesDuration && matchesCost && matchesDate;
+  }).sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()); // Sort by most recent first
+
+  const totalPages = Math.ceil(filteredCalls.length / ITEMS_PER_PAGE);
+  const paginatedCalls = filteredCalls.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <motion.div 
@@ -886,86 +965,271 @@ export default function Dashboard() {
               transition={{ duration: 0.5 }}
             >
               <Card className="bg-gray-50 border border-gray-200 shadow-lg">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <Title>Recent Calls</Title>
-                  <div className="flex flex-wrap gap-2">
-                    <TextInput
-                      icon={Search}
-                      placeholder="Search calls..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="max-w-xs"
-                    />
-                    <Select
-                      value={filterStatus}
-                      onValueChange={setFilterStatus}
-                      className="max-w-xs"
-                    >
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
-                      <SelectItem value="ongoing">Ongoing</SelectItem>
-                    </Select>
+                <div className="space-y-6">
+                  {/* Header and Filters */}
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Title>Recent Calls</Title>
+                      <div className="flex items-center gap-2">
+                        <TextInput
+                          icon={Search}
+                          placeholder="Search calls..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-64"
+                        />
+                        <Badge
+                          color="blue"
+                          size="xl"
+                        >
+                          {filteredCalls.length} Calls
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-3 bg-gray-50 p-3 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-500">Status:</span>
+                        <Select
+                          value={callFilters.status}
+                          onValueChange={(value) => setCallFilters(prev => ({ ...prev, status: value }))}
+                          className="w-36"
+                        >
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="failed">Failed</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                        </Select>
+                      </div>
+
+                      <div className="h-6 w-px bg-gray-300" />
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-500">Duration:</span>
+                        <Select
+                          value={callFilters.duration}
+                          onValueChange={(value) => setCallFilters(prev => ({ ...prev, duration: value }))}
+                          className="w-36"
+                        >
+                          <SelectItem value="all">All Durations</SelectItem>
+                          <SelectItem value="very-short">&lt; 1 min</SelectItem>
+                          <SelectItem value="short">1-5 min</SelectItem>
+                          <SelectItem value="medium">&gt; 5 min</SelectItem>
+                        </Select>
+                      </div>
+
+                      <div className="h-6 w-px bg-gray-300" />
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-500">Cost:</span>
+                        <Select
+                          value={callFilters.cost}
+                          onValueChange={(value) => setCallFilters(prev => ({ ...prev, cost: value }))}
+                          className="w-36"
+                        >
+                          <SelectItem value="all">All Costs</SelectItem>
+                          <SelectItem value="very-low">&lt; $0.5</SelectItem>
+                          <SelectItem value="low">$0.5-$5</SelectItem>
+                          <SelectItem value="medium">&gt; $5</SelectItem>
+                        </Select>
+                      </div>
+
+                      <div className="h-6 w-px bg-gray-300" />
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-500">Time:</span>
+                        <Select
+                          value={callFilters.date}
+                          onValueChange={(value) => setCallFilters(prev => ({ ...prev, date: value }))}
+                          className="w-36"
+                        >
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="week">This Week</SelectItem>
+                          <SelectItem value="month">This Month</SelectItem>
+                        </Select>
+                      </div>
+
+                      {(callFilters.status !== 'all' || 
+                        callFilters.duration !== 'all' || 
+                        callFilters.cost !== 'all' || 
+                        callFilters.date !== 'all' ||
+                        searchQuery !== '') && (
+                        <>
+                          <div className="h-6 w-px bg-gray-300" />
+                          <Button
+                            variant="light"
+                            color="gray"
+                            onClick={() => {
+                              setCallFilters({
+                                status: 'all',
+                                duration: 'all',
+                                cost: 'all',
+                                date: 'all'
+                              });
+                              setSearchQuery('');
+                            }}
+                            icon={X}
+                          >
+                            Clear Filters
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <Table className="mt-4">
-                  <TableHead>
-                    <TableRow>
-                      <TableHeaderCell>Phone Number</TableHeaderCell>
-                      <TableHeaderCell>Status</TableHeaderCell>
-                      <TableHeaderCell>Start Time</TableHeaderCell>
-                      <TableHeaderCell>Duration (s)</TableHeaderCell>
-                      <TableHeaderCell>Cost</TableHeaderCell>
-                      <TableHeaderCell>Ended Reason</TableHeaderCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {loadingCalls ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center">
-                          <LoadingSpinner />
-                        </TableCell>
-                      </TableRow>
-                    ) : calls.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-gray-500">
-                          No calls found
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      calls
-                        .filter(call => {
-                          const matchesSearch = (call.customer?.number || '').toLowerCase().includes(searchQuery.toLowerCase());
-                          const matchesFilter = filterStatus === 'all' || call.status.toLowerCase() === filterStatus;
-                          return matchesSearch && matchesFilter;
-                        })
-                        .map((call) => {
-                          const duration = call.startedAt && call.endedAt
-                            ? Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000)
-                            : null;
-
-                          return (
-                            <TableRow key={call.id} className="hover:bg-gray-50 cursor-pointer">
-                              <TableCell>{call.customer?.number || 'Unknown'}</TableCell>
+                  {/* Calls Table */}
+                  {loadingCalls ? (
+                    <div className="flex justify-center items-center py-8">
+                      <LoadingSpinner size={40} />
+                    </div>
+                  ) : filteredCalls.length > 0 ? (
+                    <>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableHeaderCell>Phone Number</TableHeaderCell>
+                            <TableHeaderCell>Date & Time</TableHeaderCell>
+                            <TableHeaderCell>Duration</TableHeaderCell>
+                            <TableHeaderCell>Cost</TableHeaderCell>
+                            <TableHeaderCell>Status</TableHeaderCell>
+                            <TableHeaderCell>Actions</TableHeaderCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {paginatedCalls.map((call) => (
+                            <TableRow 
+                              key={call.id}
+                              className="cursor-pointer hover:bg-gray-50 transition-colors"
+                              onClick={() => {
+                                setSelectedCall(call);
+                                setShowCallModal(true);
+                              }}
+                            >
                               <TableCell>
-                                <Badge color={
-                                  call.status === 'completed' ? 'green' :
-                                  call.status === 'failed' ? 'red' : 'yellow'
-                                }>
+                                <div className="flex items-center gap-2">
+                                  <Phone className="w-4 h-4 text-gray-400" />
+                                  <span className="font-medium">{call.customer?.number || 'Unknown'}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span>{format(new Date(call.startedAt), 'MMM d, yyyy')}</span>
+                                  <span className="text-sm text-gray-500">{format(new Date(call.startedAt), 'h:mm a')}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {(() => {
+                                  const duration = Math.round(
+                                    (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000
+                                  );
+                                  const minutes = Math.floor(duration / 60);
+                                  const seconds = duration % 60;
+                                  return (
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="w-4 h-4 text-gray-400" />
+                                      <span>{minutes}:{seconds.toString().padStart(2, '0')}</span>
+                                    </div>
+                                  );
+                                })()}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <DollarSign className="w-4 h-4 text-gray-400" />
+                                  <span>{call.cost.toFixed(2)}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  color={
+                                    call.status === 'completed' ? 'green' :
+                                    call.status === 'failed' ? 'red' : 'yellow'
+                                  }
+                                  className="capitalize"
+                                >
                                   {call.status}
                                 </Badge>
                               </TableCell>
-                              <TableCell>{call.startedAt ? new Date(call.startedAt).toLocaleString() : '-'}</TableCell>
-                              <TableCell>{duration || '-'}</TableCell>
-                              <TableCell>${call.cost?.toFixed(2) || '-'}</TableCell>
-                              <TableCell>{call.endedReason || '-'}</TableCell>
+                              <TableCell>
+                                <Button
+                                  size="xs"
+                                  variant="secondary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedCall(call);
+                                    setShowCallModal(true);
+                                  }}
+                                >
+                                  View Details
+                                </Button>
+                              </TableCell>
                             </TableRow>
-                          );
-                        })
-                    )}
-                  </TableBody>
-                </Table>
+                          ))}
+                        </TableBody>
+                      </Table>
+
+                      {/* Pagination */}
+                      {totalPages > 1 && (
+                        <div className="flex justify-between items-center mt-6 px-2">
+                          <div className="text-sm text-gray-500">
+                            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredCalls.length)} of {filteredCalls.length} calls
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="xs"
+                              variant="secondary"
+                              disabled={currentPage === 1}
+                              onClick={() => handlePageChange(currentPage - 1)}
+                              icon={ChevronLeft}
+                            >
+                              Previous
+                            </Button>
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                              <Button
+                                key={page}
+                                size="xs"
+                                variant={currentPage === page ? "primary" : "secondary"}
+                                onClick={() => handlePageChange(page)}
+                              >
+                                {page}
+                              </Button>
+                            ))}
+                            <Button
+                              size="xs"
+                              variant="secondary"
+                              disabled={currentPage === totalPages}
+                              onClick={() => handlePageChange(currentPage + 1)}
+                              icon={ChevronRight}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="flex flex-col items-center gap-3">
+                        <PhoneOff className="w-12 h-12 text-gray-400" />
+                        <Text>No calls found matching your filters.</Text>
+                        <Button
+                          variant="light"
+                          onClick={() => {
+                            setCallFilters({
+                              status: 'all',
+                              duration: 'all',
+                              cost: 'all',
+                              date: 'all'
+                            });
+                            setSearchQuery('');
+                          }}
+                        >
+                          Clear Filters
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </Card>
             </motion.div>
           </TabPanel>
@@ -994,6 +1258,14 @@ export default function Dashboard() {
           console.log('Alert settings:', alertSettings);
           showToast('Alert settings saved successfully!');
           setShowAlertModal(false);
+        }}
+      />
+      <CallDetailsModal
+        call={selectedCall!}
+        isOpen={showCallModal && selectedCall !== null}
+        onClose={() => {
+          setShowCallModal(false);
+          setSelectedCall(null);
         }}
       />
     </motion.div>

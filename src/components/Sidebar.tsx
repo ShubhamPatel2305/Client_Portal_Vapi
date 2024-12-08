@@ -26,20 +26,20 @@ interface SidebarProps {
 const sidebarVariants = {
   open: {
     width: '16rem',
-    x: 0,
     transition: {
       type: "spring",
-      stiffness: 300,
-      damping: 30
+      stiffness: 400,
+      damping: 40,
+      mass: 1
     }
   },
   closed: {
     width: '5rem',
-    x: 0,
     transition: {
       type: "spring",
-      stiffness: 300,
-      damping: 30
+      stiffness: 400,
+      damping: 40,
+      mass: 1
     }
   }
 };
@@ -50,8 +50,8 @@ const itemVariants = {
     x: 0,
     transition: {
       type: "spring",
-      stiffness: 300,
-      damping: 30
+      stiffness: 400,
+      damping: 40
     }
   },
   closed: {
@@ -59,10 +59,15 @@ const itemVariants = {
     x: -10,
     transition: {
       type: "spring",
-      stiffness: 300,
-      damping: 30
+      stiffness: 400,
+      damping: 40
     }
   }
+};
+
+const iconVariants = {
+  open: { scale: 1 },
+  closed: { scale: 0.9 }
 };
 
 const mobileMenuVariants = {
@@ -70,16 +75,16 @@ const mobileMenuVariants = {
     x: 0,
     transition: {
       type: "spring",
-      stiffness: 300,
-      damping: 30
+      stiffness: 400,
+      damping: 40
     }
   },
   closed: {
     x: "-100%",
     transition: {
       type: "spring",
-      stiffness: 300,
-      damping: 30
+      stiffness: 400,
+      damping: 40
     }
   }
 };
@@ -179,7 +184,7 @@ export default function Sidebar({ className }: SidebarProps) {
           'fixed top-0 left-0 z-40 h-screen',
           'bg-white/95 backdrop-blur-xl',
           'border-r border-gray-200/50 shadow-xl',
-          'transition-all duration-300 ease-in-out',
+          'transition-colors duration-300',
           'md:translate-x-0',
           'w-64 md:w-auto',
           'transform',
@@ -199,6 +204,8 @@ export default function Sidebar({ className }: SidebarProps) {
             >
               <motion.div 
                 className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0"
+                variants={iconVariants}
+                animate={isCollapsed ? "closed" : "open"}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -210,7 +217,7 @@ export default function Sidebar({ className }: SidebarProps) {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
-                    transition={{ duration: 0.2 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 40 }}
                     className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap"
                   >
                     TopEdge
@@ -234,7 +241,7 @@ export default function Sidebar({ className }: SidebarProps) {
             >
               <motion.div
                 animate={{ rotate: isCollapsed ? 180 : 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                transition={{ type: "spring", stiffness: 400, damping: 40 }}
               >
                 <ChevronLeft className="w-4 h-4 text-gray-600" />
               </motion.div>
@@ -279,6 +286,8 @@ export default function Sidebar({ className }: SidebarProps) {
                     >
                       <motion.div 
                         className="flex-shrink-0 w-5 h-5"
+                        variants={iconVariants}
+                        animate={isCollapsed ? "closed" : "open"}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                       >
@@ -330,7 +339,7 @@ export default function Sidebar({ className }: SidebarProps) {
           </nav>
 
           {/* Profile Section */}
-          <div className="border-t border-gray-200/50 p-2 md:p-3" ref={profileMenuRef}>
+          <div className="border-t border-gray-200/50 p-2 md:p-3 relative" ref={profileMenuRef}>
             <motion.button
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
               className={cn(
@@ -348,6 +357,8 @@ export default function Sidebar({ className }: SidebarProps) {
             >
               <motion.div
                 className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center"
+                variants={iconVariants}
+                animate={isCollapsed ? "closed" : "open"}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
@@ -380,37 +391,62 @@ export default function Sidebar({ className }: SidebarProps) {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </motion.button>
 
-            {/* Profile Menu */}
-            <AnimatePresence>
-              {isProfileMenuOpen && (!isCollapsed || window.innerWidth < 768) && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  className="absolute bottom-full left-2 md:left-3 right-2 md:right-3 mb-2 p-1.5 md:p-2 bg-white rounded-xl shadow-lg border border-gray-200/50 backdrop-blur-xl"
-                >
-                  <motion.button
-                    onClick={() => {
-                      logout();
-                      navigate('/login');
-                    }}
+              {/* Profile Menu */}
+              <AnimatePresence>
+                {isProfileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 40 }}
                     className={cn(
-                      'w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5 rounded-lg text-sm',
-                      'text-red-600 hover:bg-red-50',
-                      'transition-colors duration-200'
+                      'absolute w-[calc(100%-1rem)] md:w-[calc(100%-1.5rem)]',
+                      'bottom-full left-2 md:left-3 mb-2',
+                      'p-1.5 md:p-2 bg-white rounded-xl',
+                      'shadow-lg border border-gray-200/50',
+                      'backdrop-blur-xl z-50'
                     )}
-                    whileHover={{ x: 4 }}
-                    whileTap={{ scale: 0.98 }}
                   >
-                    <LogOut className="w-4 h-4" />
-                    <span>Log Out</span>
-                  </motion.button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    <div className="space-y-1">
+                      <motion.button
+                        onClick={() => {
+                          handleNavigation('/settings');
+                          setIsProfileMenuOpen(false);
+                        }}
+                        className={cn(
+                          'w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5 rounded-lg text-sm',
+                          'text-gray-600 hover:bg-gray-50',
+                          'transition-colors duration-200'
+                        )}
+                        whileHover={{ x: 4 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <Settings className="w-4 h-4" />
+                        <span>Settings</span>
+                      </motion.button>
+
+                      <motion.button
+                        onClick={() => {
+                          logout();
+                          navigate('/login');
+                        }}
+                        className={cn(
+                          'w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5 rounded-lg text-sm',
+                          'text-red-600 hover:bg-red-50',
+                          'transition-colors duration-200'
+                        )}
+                        whileHover={{ x: 4 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Log Out</span>
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.button>
           </div>
         </div>
       </motion.aside>
