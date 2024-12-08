@@ -1,470 +1,130 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import {
   Card,
   Title,
   Text,
+  Tab,
+  TabList,
+  TabGroup,
+  TabPanel,
+  TabPanels,
   AreaChart,
-  BarChart, 
+  BarChart,
+  DonutChart,
+  Badge,
   Grid,
+  Flex,
+  Metric,
+  ProgressBar,
   Select,
   SelectItem,
-  DateRangePicker,
-  DateRangePickerValue,
-  DonutChart,
-  List,
-  ListItem,
-  Button,
-  Col,
 } from '@tremor/react';
-import {
-  Zap,
-  AlertTriangle,
-  Clock,
-  Globe,
-  Users,
-  RefreshCw,
-} from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import { motion } from 'framer-motion';
+import { vapiService } from '../services/vapiService';
+import { format, subDays } from 'date-fns';
 import LoadingSpinner from '../components/LoadingSpinner';
-import StatCard from '../components/StatCard';
-import { usePageStore } from '../stores/pageStore';
-import { showToast } from '../components/Toast';
-import { vapiService } from '../lib/api/vapiService';
-
-interface AnalyticsDataPoint {
-  timestamp: string;
-  callCount: number;
-  avgDuration: number;
-  totalCost: number;
-  activeUsers: number;
-}
-
-interface CallMetrics {
-  total: number;
-  answered: number;
-  missed: number;
-  avgDuration: number;
-  successRate: number;
-  peakTime: string;
-  avgResponseTime: string;
-  responseTimeTrend: number;
-  performanceData: Array<{ name: string; value: number }>;
-  errorBreakdown: Array<{ name: string; value: number }>;
-  typeDistribution: Array<{ name: string; value: number }>;
-  hourlyDistribution: Array<{ hour: number; calls: number }>;
-}
-
-interface UserMetrics {
-  total: number;
-  active: number;
-  new: number;
-  engagementData: Array<{ category: string; value: number }>;
-  satisfaction: number;
-  satisfactionTrend: number;
-}
-
-interface RegionalData {
-  region: string;
-  calls: number;
-  percentage: number;
-  value: number;
-}
-
-interface AnalyticsData {
-  timeSeriesData: AnalyticsDataPoint[];
-  callMetrics: CallMetrics;
-  userMetrics: UserMetrics;
-  regionalData: RegionalData[];
-  anomalies: Array<{
-    description: string;
-    timestamp: string;
-  }>;
-}
-
-interface Analytics {
-  monthlyTrend: Array<{ date: string; calls: number; cost: number }>;
-  numberOfCalls: number;
-  callDistribution: Array<{ name: string; value: number; count: number }>;
-  totalCallMinutes: number;
-  numberOfCallsTrend: number;
-}
-
-const colors = {
-  blue: 'blue',
-  cyan: 'cyan',
-  violet: 'violet',
-  fuchsia: 'fuchsia',
-  amber: 'amber',
-  emerald: 'emerald',
-  rose: 'rose',
-  slate: 'slate',
-} as const;
 
 const timeRanges = [
-  { value: '24h', label: 'Last 24 Hours' },
   { value: '7d', label: 'Last 7 Days' },
   { value: '30d', label: 'Last 30 Days' },
   { value: '90d', label: 'Last 90 Days' },
-  { value: 'custom', label: 'Custom Range' },
 ];
 
-const metrics = [
-  { value: 'calls', label: 'Call Volume' },
-  { value: 'duration', label: 'Call Duration' },
-  { value: 'cost', label: 'Cost' },
-  { value: 'users', label: 'Active Users' },
-];
-
-// Convert Analytics data from API to our AnalyticsData format
-const mapAnalyticsToData = (analytics: Analytics): AnalyticsData => {
-  // Create time series data from monthly trend
-  const timeSeriesData = analytics.monthlyTrend.map(item => ({
-    timestamp: item.date,
-    callCount: item.calls,
-    avgDuration: 0, // Calculate from total duration / calls
-    totalCost: item.cost,
-    activeUsers: 0 // This will need to come from a different metric
-  }));
-
-  // Extract call metrics
-  const callMetrics = {
-    total: analytics.numberOfCalls,
-    answered: analytics.callDistribution.find(d => d.name === 'success')?.count || 0,
-    missed: analytics.callDistribution.find(d => d.name === 'failed')?.count || 0,
-    avgDuration: Math.round(analytics.totalCallMinutes / analytics.numberOfCalls) || 0,
-    successRate: (analytics.callDistribution.find(d => d.name === 'success')?.value || 0) * 100,
-    peakTime: '14:00', // This would need to come from a different metric
-    avgResponseTime: '45s', // This would need to come from a different metric
-    responseTimeTrend: analytics.numberOfCallsTrend,
-    performanceData: analytics.callDistribution.map(d => ({ 
-      name: d.name, 
-      value: d.value 
-    })),
-    errorBreakdown: analytics.callDistribution.filter(d => d.name === 'failed').map(d => ({
-      name: d.name,
-      value: d.count
-    })),
-    typeDistribution: analytics.callDistribution.map(d => ({
-      name: d.name,
-      value: d.count
-    })),
-    hourlyDistribution: [] // This would need to come from a different metric
-  };
-
-  // Extract user metrics (these are placeholder values as they're not in the API response)
-  const userMetrics = {
-    total: 100,
-    active: 80,
-    new: 20,
-    engagementData: [],
-    satisfaction: 4.5,
-    satisfactionTrend: 0.2
-  };
-
-  // Extract regional data (this is a placeholder as it's not in the API response)
-  const regionalData: RegionalData[] = [
-    {
-      region: 'North America',
-      calls: analytics.numberOfCalls * 0.4,
-      percentage: 40,
-      value: analytics.numberOfCalls * 0.4
-    },
-    {
-      region: 'Europe',
-      calls: analytics.numberOfCalls * 0.3,
-      percentage: 30,
-      value: analytics.numberOfCalls * 0.3
-    },
-    {
-      region: 'Asia',
-      calls: analytics.numberOfCalls * 0.2,
-      percentage: 20,
-      value: analytics.numberOfCalls * 0.2
-    },
-    {
-      region: 'Other',
-      calls: analytics.numberOfCalls * 0.1,
-      percentage: 10,
-      value: analytics.numberOfCalls * 0.1
-    }
-  ];
-
-  // Create anomalies from significant trends
-  const anomalies = [
-    {
-      description: analytics.numberOfCallsTrend > 10 ? 'Significant increase in call volume' : 
-                   analytics.numberOfCallsTrend < -10 ? 'Significant decrease in call volume' : 
-                   'Normal call volume',
-      timestamp: new Date().toISOString()
-    }
-  ];
-
-  return {
-    timeSeriesData,
-    callMetrics,
-    userMetrics,
-    regionalData,
-    anomalies
-  };
-};
-
-const containerVariants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { duration: 0.3, staggerChildren: 0.1 } },
-  exit: { opacity: 0 },
-};
-
-const itemVariants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: 20 },
-};
-
-export default function Analytics() {
-  const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
-  const [dateRange, setDateRange] = useState<DateRangePickerValue>({
-    from: subDays(new Date(), 7),
-    to: new Date(),
-  });
-  const [selectedMetric, setSelectedMetric] = useState('calls');
+const Analytics: React.FC = () => {
+  const [timeRange, setTimeRange] = useState('7d');
+  const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [assistantId] = useState('56c7f0f1-a068-4f7f-ae52-33bb86c3896d');
   const [error, setError] = useState<string | null>(null);
-  const { updateLastRefresh } = usePageStore();
 
-  const refreshData = async () => {
+  useEffect(() => {
+    loadAnalytics();
+  }, [timeRange, assistantId]);
+
+  const loadAnalytics = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const startDate = dateRange.from
-        ? startOfDay(dateRange.from)
-        : subDays(new Date(), parseInt(selectedTimeRange));
-      const endDate = dateRange.to
-        ? endOfDay(dateRange.to)
-        : new Date();
+      const days = parseInt(timeRange);
+      const endDate = new Date();
+      const startDate = subDays(endDate, days);
 
-      const analyticsData = await vapiService.getAnalytics(startDate, endDate);
-      if (!analyticsData) {
-        throw new Error('No data received from the API');
-      }
-      
-      const transformedData = mapAnalyticsToData(analyticsData);
-      setData(transformedData);
-      updateLastRefresh('analytics');
-      showToast('Analytics data refreshed');
-    } catch (error) {
-      console.error('Error fetching analytics data:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch analytics data';
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
+      const analyticsData = await vapiService.getAnalytics({
+        start_date: format(startDate, 'yyyy-MM-dd'),
+        end_date: format(endDate, 'yyyy-MM-dd'),
+        assistant_id: assistantId,
+      });
+
+      setAnalytics(analyticsData);
+    } catch (error: any) {
+      console.error('Failed to fetch analytics:', error);
+      setError(error.message || 'Failed to fetch analytics data');
+      setAnalytics(null);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    refreshData();
-  }, [selectedTimeRange, dateRange.from, dateRange.to]);
+  const processCallsByStatus = (calls: any[]) => {
+    return calls.reduce((acc: Record<string, number>, call: any) => {
+      const status = call.status || 'unknown';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+  };
 
-  const timeSeriesChart = useMemo(() => {
-    if (!data?.timeSeriesData) return null;
-
-    const valueKey = {
-      calls: 'callCount',
-      duration: 'avgDuration',
-      cost: 'totalCost',
-      users: 'activeUsers',
-    }[selectedMetric] as string; // Ensure valueKey is always a string
-
-    const valueFormatter = {
-      calls: (value: number) => `${value} calls`,
-      duration: (value: number) => `${value} min`,
-      cost: (value: number) => `$${value.toFixed(2)}`,
-      users: (value: number) => `${value} users`,
-    }[selectedMetric];
-
-    return (
-      <Card className="mt-4">
-        <div className="flex justify-between items-center mb-4">
-          <Title>Trend Analysis</Title>
-          <div className="flex items-center gap-2">
-            <Select value={selectedMetric} onValueChange={setSelectedMetric}>
-              {metrics.map((metric) => (
-                <SelectItem key={metric.value} value={metric.value}>
-                  {metric.label}
-                </SelectItem>
-              ))}
-            </Select>
-          </div>
-        </div>
-        <AreaChart
-          data={data.timeSeriesData}
-          index="timestamp"
-          categories={[valueKey]}
-          colors={[colors.blue]}
-          valueFormatter={valueFormatter}
-          showLegend={false}
-          showAnimation={true}
-          className="h-72"
-        />
-      </Card>
-    );
-  }, [data?.timeSeriesData, selectedMetric]);
-
-  const anomalyDetection = useMemo(() => {
-    if (!data?.anomalies?.length) return null;
-
-    return (
-      <Card className="mt-4">
-        <Title>Anomaly Detection</Title>
-        <Text className="mt-2">Unusual patterns detected in your data</Text>
-        <List className="mt-4">
-          {data.anomalies.map((anomaly, idx) => (
-            <ListItem key={idx}>
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span>{anomaly.description}</span>
-              </div>
-              <Text>{format(new Date(anomaly.timestamp), 'PPp')}</Text>
-            </ListItem>
-          ))}
-        </List>
-      </Card>
-    );
-  }, [data?.anomalies]);
-
-  const performanceMetrics = useMemo(() => {
-    if (!data?.callMetrics || !data?.userMetrics) return null;
-
-    return (
-      <Grid numItems={1} numItemsSm={2} numItemsLg={3} className="gap-4 mt-4">
-        <Col>
-          <Card>
-            <Title>Call Performance</Title>
-            <DonutChart
-              data={[
-                { name: 'Successful', value: data.callMetrics.successRate },
-                { name: 'Failed', value: 100 - data.callMetrics.successRate },
-              ]}
-              category="value"
-              index="name"
-              colors={[colors.emerald, colors.rose]}
-              className="mt-4 h-40"
-            />
-            <div className="mt-4">
-              <Text>Success Rate</Text>
-              <Title>{data.callMetrics.successRate}%</Title>
-            </div>
-          </Card>
-        </Col>
-        <Col>
-          <Card>
-            <Title>User Engagement</Title>
-            <BarChart
-              data={data.userMetrics.engagementData}
-              index="category"
-              categories={['value']}
-              colors={[colors.violet]}
-              className="mt-4 h-40"
-            />
-          </Card>
-        </Col>
-        <Col>
-          <Card>
-            <Title>Regional Distribution</Title>
-            <DonutChart
-              data={data.regionalData}
-              category="value"
-              index="region"
-              colors={Object.values(colors)}
-              className="mt-4 h-40"
-            />
-          </Card>
-        </Col>
-      </Grid>
-    );
-  }, [data?.callMetrics, data?.userMetrics, data?.regionalData]);
-
-  const insightsSummary = useMemo(() => {
-    if (!data) return null;
-
-    return (
-      <Card className="mt-4">
-        <Title>Key Insights</Title>
-        <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-4 mt-4">
-          <StatCard
-            title="Peak Usage Time"
-            value={data.callMetrics.peakTime}
-            icon={Clock}
-            trend={{ value: 0, label: 'Consistent' }}
-          />
-          <StatCard
-            title="Avg Response Time"
-            value={data.callMetrics.avgResponseTime}
-            icon={Zap}
-            trend={{ value: data.callMetrics.responseTimeTrend, label: 'from last month' }}
-          />
-          <StatCard
-            title="Active Regions"
-            value={data.regionalData.length}
-            icon={Globe}
-            trend={{ value: 0, label: 'Stable' }}
-          />
-          <StatCard
-            title="User Satisfaction"
-            value={`${data.userMetrics.satisfaction}%`}
-            icon={Users}
-            trend={{ value: data.userMetrics.satisfactionTrend, label: 'from last month' }}
-          />
-        </Grid>
-      </Card>
-    );
-  }, [data]);
+  const processCallsByDate = (calls: any[]) => {
+    return calls.reduce((acc: Record<string, number>, call: any) => {
+      const date = format(new Date(call.created_at), 'yyyy-MM-dd');
+      acc[date] = (acc[date] || 0) + 1;
+      return acc;
+    }, {});
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <LoadingSpinner size={50} />
+      <div className="flex justify-center items-center h-screen">
+        <LoadingSpinner size={40} />
       </div>
     );
   }
 
-  if (error) {
+  if (!analytics) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-        <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Error Loading Analytics</h2>
-        <p className="text-gray-600 mb-4">{error}</p>
-        <Button onClick={refreshData}>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Try Again
-        </Button>
+      <div className="flex justify-center items-center h-screen">
+        <Text>Failed to load analytics data.</Text>
       </div>
     );
   }
 
   return (
     <motion.div
-      variants={containerVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      className="min-h-screen bg-white"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="p-6 space-y-6"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Detailed insights about your call center performance
-            </p>
-          </div>
-          <div className="flex items-center space-x-4">
+      {error && (
+        <Card className="mt-4">
+          <Text color="red">{error}</Text>
+        </Card>
+      )}
+
+      {loading ? (
+        <Card className="mt-4">
+          <Text>Loading analytics data...</Text>
+        </Card>
+      ) : analytics ? (
+        <div>
+          <div className="flex justify-between items-center">
+            <div>
+              <Title className="text-2xl font-bold">Vapi Analytics</Title>
+              <Text>Comprehensive insights into your AI caller performance</Text>
+            </div>
             <Select
-              value={selectedTimeRange}
-              onValueChange={setSelectedTimeRange}
+              value={timeRange}
+              onValueChange={setTimeRange}
               className="w-40"
             >
               {timeRanges.map((range) => (
@@ -473,29 +133,197 @@ export default function Analytics() {
                 </SelectItem>
               ))}
             </Select>
-            {selectedTimeRange === 'custom' && (
-              <DateRangePicker
-                value={dateRange}
-                onValueChange={setDateRange}
-                className="max-w-md mx-auto"
-              />
-            )}
-            <Button
-              icon={RefreshCw}
-              variant="secondary"
-              onClick={refreshData}
-              loading={loading}
-            >
-              Refresh
-            </Button>
           </div>
-        </div>
 
-        {timeSeriesChart}
-        {anomalyDetection}
-        {performanceMetrics}
-        {insightsSummary}
-      </div>
+          <TabGroup>
+            <TabList className="mb-8">
+              <Tab>Overview</Tab>
+              <Tab>Performance</Tab>
+              <Tab>Quality</Tab>
+              <Tab>Issues</Tab>
+            </TabList>
+
+            <TabPanels>
+              <TabPanel>
+                <Grid numItems={1} numItemsSm={2} numItemsLg={3} className="gap-6">
+                  <Card decoration="top" decorationColor="blue">
+                    <Text>Total Calls</Text>
+                    <Metric>{analytics.total_calls?.toLocaleString()}</Metric>
+                    <Flex className="mt-4">
+                      <Text>Success Rate</Text>
+                      <Badge color="emerald">
+                        {((analytics.callsByStatus?.completed || 0) / analytics.total_calls * 100).toFixed(1)}%
+                      </Badge>
+                    </Flex>
+                    <ProgressBar 
+                      value={(analytics.callsByStatus?.completed || 0) / analytics.total_calls * 100} 
+                      color="blue" 
+                      className="mt-3" 
+                    />
+                  </Card>
+
+                  <Card decoration="top" decorationColor="green">
+                    <Text>Average Duration</Text>
+                    <Metric>{Math.round(analytics.average_duration / 60)}m {Math.round(analytics.average_duration % 60)}s</Metric>
+                    <Flex className="mt-4">
+                      <Text>Efficiency</Text>
+                      <Badge color="emerald">+5.2%</Badge>
+                    </Flex>
+                    <ProgressBar value={80} color="green" className="mt-3" />
+                  </Card>
+
+                  <Card decoration="top" decorationColor="purple">
+                    <Text>Average Latency</Text>
+                    <Metric>{Math.round(analytics.averageLatency)}ms</Metric>
+                    <Flex className="mt-4">
+                      <Text>Performance</Text>
+                      <Badge color="emerald">Good</Badge>
+                    </Flex>
+                    <ProgressBar value={85} color="purple" className="mt-3" />
+                  </Card>
+                </Grid>
+
+                <Card className="mt-6">
+                  <Title>Call Volume Trends</Title>
+                  <AreaChart
+                    className="mt-4 h-72"
+                    data={Object.entries(analytics.callsByDate).map(([date, count]) => ({
+                      date,
+                      calls: count,
+                    }))}
+                    index="date"
+                    categories={["calls"]}
+                    colors={["blue"]}
+                  />
+                </Card>
+              </TabPanel>
+
+              <TabPanel>
+                <Grid numItems={1} numItemsSm={2} className="gap-6">
+                  <Card>
+                    <Title>Call Status Distribution</Title>
+                    <DonutChart
+                      className="mt-4 h-40"
+                      data={Object.entries(analytics.callsByStatus).map(([status, count]) => ({
+                        name: status,
+                        value: count,
+                      }))}
+                      category="value"
+                      index="name"
+                      colors={["emerald", "blue", "red"]}
+                    />
+                  </Card>
+
+                  <Card>
+                    <Title>Cost Analysis</Title>
+                    <BarChart
+                      className="mt-4 h-40"
+                      data={[
+                        { type: "Total Cost", amount: analytics.total_cost },
+                        { type: "Avg Cost/Call", amount: analytics.total_cost / analytics.total_calls },
+                      ]}
+                      index="type"
+                      categories={["amount"]}
+                      colors={["blue"]}
+                      valueFormatter={(value) => `$${value.toFixed(2)}`}
+                    />
+                  </Card>
+                </Grid>
+              </TabPanel>
+
+              <TabPanel>
+                <Grid numItems={1} numItemsSm={2} className="gap-6">
+                  <Card>
+                    <Title>Success Rate Over Time</Title>
+                    <AreaChart
+                      className="mt-4 h-60"
+                      data={Object.entries(analytics.callsByDate).map(([date, count]) => ({
+                        date,
+                        "Success Rate": (analytics.callsByStatus?.completed || 0) / (count as number) * 100,
+                      }))}
+                      index="date"
+                      categories={["Success Rate"]}
+                      colors={["emerald"]}
+                      valueFormatter={(value) => `${value.toFixed(1)}%`}
+                    />
+                  </Card>
+
+                  <Card>
+                    <Title>Performance Metrics</Title>
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <Flex justifyContent="between" className="mb-2">
+                          <Text>Average Response Time</Text>
+                          <Text>{Math.round(analytics.averageLatency)}ms</Text>
+                        </Flex>
+                        <ProgressBar value={85} color="blue" />
+                      </div>
+                      <div>
+                        <Flex justifyContent="between" className="mb-2">
+                          <Text>Completion Rate</Text>
+                          <Text>
+                            {((analytics.callsByStatus?.completed || 0) / analytics.total_calls * 100).toFixed(1)}%
+                          </Text>
+                        </Flex>
+                        <ProgressBar 
+                          value={(analytics.callsByStatus?.completed || 0) / analytics.total_calls * 100} 
+                          color="emerald" 
+                        />
+                      </div>
+                    </div>
+                  </Card>
+                </Grid>
+              </TabPanel>
+
+              <TabPanel>
+                <Grid numItems={1} numItemsSm={2} className="gap-6">
+                  <Card>
+                    <Title>Error Analysis</Title>
+                    <BarChart
+                      className="mt-4 h-60"
+                      data={Object.entries(analytics.callsByStatus)
+                        .filter(([status]) => status !== 'completed')
+                        .map(([status, count]) => ({
+                          status,
+                          count,
+                        }))}
+                      index="status"
+                      categories={["count"]}
+                      colors={["red"]}
+                    />
+                  </Card>
+
+                  <Card>
+                    <Title>Cost Efficiency</Title>
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <Flex justifyContent="between" className="mb-2">
+                          <Text>Cost per Successful Call</Text>
+                          <Text>
+                            ${(analytics.total_cost / (analytics.callsByStatus?.completed || 1)).toFixed(2)}
+                          </Text>
+                        </Flex>
+                        <ProgressBar value={75} color="emerald" />
+                      </div>
+                      <div>
+                        <Flex justifyContent="between" className="mb-2">
+                          <Text>Success/Cost Ratio</Text>
+                          <Text>
+                            {((analytics.callsByStatus?.completed || 0) / analytics.total_cost).toFixed(2)}
+                          </Text>
+                        </Flex>
+                        <ProgressBar value={80} color="blue" />
+                      </div>
+                    </div>
+                  </Card>
+                </Grid>
+              </TabPanel>
+            </TabPanels>
+          </TabGroup>
+        </div>
+      ) : null}
     </motion.div>
   );
-}
+};
+
+export default Analytics;

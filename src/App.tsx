@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useAuthStore } from './stores/auth';
 import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
+import VapiAnalytics from './pages/Vapi';
 import Login from './pages/Login';
 import Reports from './pages/Reports';
 import Team from './pages/Team';
@@ -59,7 +60,8 @@ export default function App() {
           {/* Protected Routes */}
           <Route element={<AuthLayout />}>
             <Route element={<MainLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/vapi" element={<VapiAnalytics />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/team" element={<Team />} />
@@ -69,10 +71,10 @@ export default function App() {
           </Route>
 
           {/* Redirect root to dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
           
           {/* Catch all other routes and redirect to dashboard */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

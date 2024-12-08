@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
-  BarChart2,
+  LineChart,
   FileText,
   Settings,
   HelpCircle,
@@ -13,6 +13,7 @@ import {
   LogOut,
   User,
   ChevronUp,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuthStore } from '../stores/auth';
@@ -100,8 +101,9 @@ export default function Sidebar({ className }: SidebarProps) {
   const { user, logout } = useAuthStore();
 
   const navigationItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Analytics', path: '/analytics', icon: BarChart2 },
+    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Vapi Analytics', path: '/vapi', icon: LineChart },
+    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Reports', path: '/reports', icon: FileText },
     { name: 'Team', path: '/team', icon: Users },
     { name: 'Settings', path: '/settings', icon: Settings },
@@ -197,7 +199,7 @@ export default function Sidebar({ className }: SidebarProps) {
           {/* Logo Section */}
           <div className="p-4 flex items-center justify-between border-b border-gray-200/50">
             <motion.div
-              onClick={() => handleNavigation('/dashboard')}
+              onClick={() => handleNavigation('/')}
               className="flex items-center gap-2 cursor-pointer"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
