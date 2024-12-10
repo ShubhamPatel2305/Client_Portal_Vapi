@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { VapiClient } from '@vapi-ai/server-sdk';
 
 const VAPI_BASE_URL = 'https://api.vapi.ai';
 const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
@@ -208,27 +209,6 @@ interface ListCallsParams {
   updatedAtLe?: string;
 }
 
-interface CallData {
-  id: string;
-  status: string;
-  duration: number;
-  cost: number;
-  created_at: string;
-  assistant_id: string;
-  latency: number;
-  transcription: string[];
-  metadata: Record<string, any>;
-}
-
-interface AnalyticsData {
-  total_calls: number;
-  total_duration: number;
-  average_duration: number;
-  total_cost: number;
-  calls_by_status: Record<string, number>;
-  calls_by_date: Record<string, number>;
-  average_latency: number;
-}
 
 const vapiClient = axios.create({
   baseURL: VAPI_BASE_URL,
@@ -292,6 +272,8 @@ const vapiAxios = axios.create({
   },
 });
 
+const client = new VapiClient({ token: VAPI_API_KEY });
+
 export const vapiService = {
   // Get list of calls with pagination and filters
   getCalls: async (params: {
@@ -327,13 +309,19 @@ export const vapiService = {
 
   // Get assistant details
   getAssistant: async (assistantId: string) => {
-    const response = await vapiAxios.get(`/assistants/${assistantId}`);
-    return response.data;
+    try {
+      const response = await client.assistants.get(assistantId);
+      console.log(response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching assistant details:', error);
+      throw error;
+    }
   },
 
   // Update assistant configuration
   updateAssistant: async (assistantId: string, data: any) => {
-    const response = await vapiAxios.patch(`/assistants/${assistantId}`, data);
+    const response = await vapiAxios.patch(`/assistant/${assistantId}`, data);
     return response.data;
   },
 
