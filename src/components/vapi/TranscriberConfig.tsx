@@ -16,26 +16,31 @@ interface TranscriberConfigProps {
 }
 
 const providers = [
-  { value: 'whisper', label: 'OpenAI Whisper', description: 'High accuracy, multi-language support' },
-  { value: 'google', label: 'Google Speech', description: 'Fast, reliable transcription' },
-  { value: 'aws', label: 'AWS Transcribe', description: 'Enterprise-grade solution' }
+  { value: 'talkscript', label: 'Talkscript', description: 'Advanced speech recognition' },
+  { value: 'gladia', label: 'Gladia', description: 'High-performance transcription' },
+  { value: 'assembly-ai', label: 'Assembly AI', description: 'AI-powered transcription' },
+  { value: 'deepgram', label: 'Deepgram', description: 'Deepgram' }
 ];
 
 const languages = [
-  { value: 'en', label: 'English', flag: '🇺🇸' },
-  { value: 'es', label: 'Spanish', flag: '🇪🇸' },
-  { value: 'fr', label: 'French', flag: '🇫🇷' },
-  { value: 'de', label: 'German', flag: '🇩🇪' },
-  { value: 'it', label: 'Italian', flag: '🇮🇹' },
-  { value: 'pt', label: 'Portuguese', flag: '🇵🇹' },
-  { value: 'nl', label: 'Dutch', flag: '🇳🇱' },
-  { value: 'ja', label: 'Japanese', flag: '🇯🇵' }
+  { value: 'en-IN', label: 'English (India)', flag: '🇮🇳' },
+  { value: 'en-NZ', label: 'English (New Zealand)', flag: '🇳🇿' },
+  { value: 'en-US', label: 'English (United States)', flag: '🇺🇸' },
+  { value: 'es-419', label: 'Spanish (Latin America)', flag: '🌎' }
 ];
 
 const models = [
-  { value: 'base', label: 'Base', description: 'Standard transcription model' },
-  { value: 'enhanced', label: 'Enhanced', description: 'Improved accuracy and noise reduction' },
-  { value: 'premium', label: 'Premium', description: 'Highest accuracy with custom adaptations' }
+  { value: 'nova-2', label: 'Nova 2', description: 'Standard transcription model' },
+  { value: 'nova-2-general', label: 'Nova 2 General', description: 'General purpose transcription' },
+  { value: 'nova-2-meeting', label: 'Nova 2 Meeting', description: 'Optimized for meetings' },
+  { value: 'nova-2-phonecall', label: 'Nova 2 Phonecall', description: 'Optimized for phone calls' },
+  { value: 'nova-2-finance', label: 'Nova 2 Finance', description: 'Optimized for financial content' },
+  { value: 'nova-2-conversational-ai', label: 'Nova 2 Conversational AI', description: 'AI conversation optimization' },
+  { value: 'nova-2-voicemail', label: 'Nova 2 Voicemail', description: 'Voicemail transcription' },
+  { value: 'nova-2-video', label: 'Nova 2 Video', description: 'Video content transcription' },
+  { value: 'nova-2-medical', label: 'Nova 2 Medical', description: 'Medical content transcription' },
+  { value: 'nova-2-drive-thru', label: 'Nova 2 Drive Thru', description: 'Drive-thru audio optimization' },
+  { value: 'nova-2-automotive', label: 'Nova 2 Automotive', description: 'Automotive industry optimization' }
 ];
 
 const TranscriberConfig: React.FC<TranscriberConfigProps> = ({ config, onConfigChange }) => {

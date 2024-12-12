@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@tremor/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, Mic, Settings2, PlayCircle, Info, VolumeX, Volume1, Volume } from 'lucide-react';
@@ -15,29 +15,17 @@ interface VoiceConfigProps {
 }
 
 const voices = {
-  elevenlabs: [
+  '11labs': [
+    { id: 'burt', name: 'Burt', description: 'Male voice with character' },
     { id: 'rachel', name: 'Rachel', description: 'Warm and professional female voice' },
     { id: 'adam', name: 'Adam', description: 'Clear and authoritative male voice' },
     { id: 'sam', name: 'Sam', description: 'Friendly and engaging neutral voice' },
-    { id: 'emily', name: 'Emily', description: 'Young and energetic female voice' },
-    { id: 'josh', name: 'Josh', description: 'Deep and confident male voice' }
-  ],
-  aws: [
-    { id: 'joanna', name: 'Joanna', description: 'Professional female voice' },
-    { id: 'matthew', name: 'Matthew', description: 'Natural male voice' },
-    { id: 'ivy', name: 'Ivy', description: 'Cheerful female voice' }
-  ],
-  google: [
-    { id: 'wavenet-a', name: 'WaveNet A', description: 'High-quality female voice' },
-    { id: 'wavenet-b', name: 'WaveNet B', description: 'High-quality male voice' },
-    { id: 'wavenet-c', name: 'WaveNet C', description: 'High-quality neutral voice' }
+    { id: 'emily', name: 'Emily', description: 'Young and energetic female voice' }
   ]
 };
 
 const providers = [
-  { id: 'elevenlabs', name: 'ElevenLabs', description: 'High-quality emotional voices' },
-  { id: 'aws', name: 'Amazon Polly', description: 'Enterprise-grade text-to-speech' },
-  { id: 'google', name: 'Google Cloud', description: 'Natural-sounding voices' }
+  { id: '11labs', name: 'ElevenLabs', description: 'High-quality emotional voices' }
 ];
 
 const VoiceConfig: React.FC<VoiceConfigProps> = ({ config, onConfigChange }) => {
@@ -73,6 +61,12 @@ const VoiceConfig: React.FC<VoiceConfigProps> = ({ config, onConfigChange }) => 
     // Simulate voice preview
     setTimeout(() => setIsPlaying(false), 2000);
   };
+
+  useEffect(() => {
+    if (!voices[config.voice.provider as keyof typeof voices]) {
+      onConfigChange('voice.provider', '11labs');
+    }
+  }, [config.voice.provider, onConfigChange]);
 
   return (
     <motion.div
@@ -130,7 +124,7 @@ const VoiceConfig: React.FC<VoiceConfigProps> = ({ config, onConfigChange }) => 
                   onChange={(e) => onConfigChange('voice.voice', e.target.value)}
                   className="w-full px-4 py-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none"
                 >
-                  {voices[config.voice.provider as keyof typeof voices].map((voice) => (
+                  {(voices[config.voice.provider as keyof typeof voices] || []).map((voice) => (
                     <option key={voice.id} value={voice.id}>
                       {voice.name}
                     </option>
@@ -141,7 +135,7 @@ const VoiceConfig: React.FC<VoiceConfigProps> = ({ config, onConfigChange }) => 
                 </div>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                {voices[config.voice.provider as keyof typeof voices].find(v => v.id === config.voice.voice)?.description}
+                {(voices[config.voice.provider as keyof typeof voices] || []).find(v => v.id === config.voice.voice)?.description}
               </p>
             </div>
           </motion.div>
