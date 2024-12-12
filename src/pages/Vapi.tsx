@@ -1,400 +1,246 @@
-import { useState, useEffect } from 'react';
-import { Card, Title, Text, Tab, TabList, TabGroup, TabPanel, TabPanels, Select, SelectItem, AreaChart, Button } from '@tremor/react';
-import { vapiService } from '../services/vapiService';
-import { MessageSquare, Settings, BarChart3, Clock, RefreshCw } from 'lucide-react';
-import axios from 'axios';
-import toast from 'react-hot-toast';
+import { useState } from 'react';
+import { Card } from '@tremor/react';
+import { Tab } from '@headlessui/react';
+import { Settings2, MessageSquare, Mic, PlayCircle, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { produce } from 'immer';
+import { set } from 'lodash';
+import ModelConfig from '../components/vapi/ModelConfig';
+import VoiceConfig from '../components/vapi/VoiceConfig';
+import TranscriberConfig from '../components/vapi/TranscriberConfig';
+import FunctionConfig from '../components/vapi/FunctionConfig';
+import MetricsDisplay from '../components/vapi/MetricsDisplay';
 
 interface AssistantConfig {
   model: {
     provider: string;
-    model: string;
-    emotionRecognitionEnabled: boolean;
-    maxTokens: number;
+    name: string;
+    firstMessage: string;
+    systemPrompt: string;
     temperature: number;
-    knowledgeBase: string;
-    messages: {
-      content: string;
-    }[];
+    emotionRecognition: boolean;
   };
-  firstMessage: string;
   transcriber: {
     provider: string;
     language: string;
     model: string;
+    enhancedFiltering: boolean;
   };
   voice: {
     provider: string;
-    voiceId: string;
+    voice: string;
+    speed: number;
+  };
+  functions: {
+    enabled: boolean;
+    list: string[];
   };
 }
 
-const VapiAnalytics = () => {
-  const [assistantId] = useState('56c7f0f1-a068-4f7f-ae52-33bb86c3896d');
+interface MetricsState {
+  cost: number;
+  latency: number;
+}
+
+export default function Vapi() {
   const [config, setConfig] = useState<AssistantConfig>({
     model: {
       provider: 'openai',
-      model: 'gpt-4',
-      emotionRecognitionEnabled: false,
-      maxTokens: 150,
+      name: 'gpt-4',
+      firstMessage: '',
+      systemPrompt: '',
       temperature: 0.7,
-      knowledgeBase: 'select-files',
-      messages: [
-        {
-          content: ''
-        }
-      ]
+      emotionRecognition: false
     },
-    firstMessage: 'Hello! How can I help you today?',
     transcriber: {
-      provider: 'talkscriber',
+      provider: 'whisper',
       language: 'en',
-      model: 'whisper'
+      model: 'base',
+      enhancedFiltering: false
     },
     voice: {
-      provider: 'tavus',
-      voiceId: 'default'
+      provider: 'elevenlabs',
+      voice: 'rachel',
+      speed: 1.0
+    },
+    functions: {
+      enabled: false,
+      list: []
     }
   });
-  const [initialConfig, setInitialConfig] = useState<AssistantConfig | null>(null);
-  const [metrics, setMetrics] = useState<any>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('model');
-  const [message, setMessage] = useState('');
-  const [messagePrompt, setMessagePrompt] = useState('');
 
-  useEffect(() => {
-    loadAssistantData();
-    loadMetrics();
-  }, [assistantId]);
+  const [metrics, setMetrics] = useState<MetricsState>({
+    cost: 0.08,
+    latency: 950
+  });
 
-  const loadAssistantData = async () => {
-    try {
-      const data = await vapiService.getAssistant(assistantId);
-      setConfig({
-        model: {
-          provider: data.model?.provider || 'unknown',
-          model: data.model?.model || 'default',
-          emotionRecognitionEnabled: data.model?.emotionRecognitionEnabled || false,
-          maxTokens: data.model?.maxTokens || 150,
-          temperature: data.model?.temperature || 0.7,
-          knowledgeBase: data.model?.knowledgeBase || 'select-files',
-          messages: data.model?.messages?.map(msg => ({ content: msg.content || '' })) || [
-            {
-              content: ''
-            }
-          ]
-        },
-        firstMessage: data.firstMessage || 'Hello! How can I help you today?',
-        transcriber: {
-          provider: data.transcriber?.provider || 'unknown',
-          language: data.transcriber?.language || 'en',
-          model: data.transcriber?.model || 'default'
-        },
-        voice: {
-          provider: data.voice?.provider || 'unknown',
-          voiceId: data.voice?.voiceId || 'default'
-        }
-      });
-      setInitialConfig(data);
-      setMessagePrompt(data.model?.messages?.[0]?.content || '');
-    } catch (error) {
-      console.error('Error loading assistant:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+  const calculateMetrics = (config: AssistantConfig) => {
+    let baseCost = 0.08;
+    let baseLatency = 950;
 
-  const loadMetrics = async () => {
-    try {
-      const data = await vapiService.getRealTimeMetrics(assistantId);
-      setMetrics(data);
-    } catch (error) {
-      console.error('Error loading metrics:', error);
-    }
-  };
-
-  const refreshData = async () => {
-    setIsRefreshing(true);
-    try {
-      await loadAssistantData();
-      await loadMetrics();
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const handleConfigUpdate = async (updates: Partial<AssistantConfig>) => {
-    try {
-      await vapiService.updateAssistant(assistantId, { configuration: { ...config, ...updates } });
-      setConfig(prev => ({ ...prev, ...updates }));
-    } catch (error) {
-      console.error('Error updating assistant:', error);
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!initialConfig || JSON.stringify(initialConfig) === JSON.stringify(config)) {
-      toast.error('No changes detected to update.');
-      return;
-    }
-
-    try {
-      const response = await axios.patch(`https://api.vapi.ai/assistant/${assistantId}`, {
-        model: config.model,
-        firstMessage: config.firstMessage
-      }, {
-        headers: {
-          'Authorization': `Bearer ${VAPI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      toast.success('Assistant updated successfully!');
-    } catch (error) {
-      console.error('Error updating assistant:', error);
-      toast.error('Failed to update assistant.');
-    }
-  };
-
-  const handleProviderChange = (value: string) => {
-    setConfig(prev => ({
-      ...prev,
-      model: {
-        ...prev.model,
-        provider: value
+    // Model-based calculations
+    if (config.model.provider === 'openai') {
+      if (config.model.name === 'gpt-4') {
+        baseCost *= 1.5;
+        baseLatency += 200;
+      } else if (config.model.name === 'gpt-3.5-turbo') {
+        baseCost *= 0.8;
+        baseLatency -= 100;
       }
-    }));
-  };
+    }
 
-  const handleModelChange = (value: string) => {
-    setConfig(prev => ({
-      ...prev,
-      model: {
-        ...prev.model,
-        model: value
+    // Transcriber-based calculations
+    if (config.transcriber.provider === 'whisper') {
+      if (config.transcriber.model === 'enhanced') {
+        baseCost += 0.02;
+        baseLatency += 100;
+      } else if (config.transcriber.model === 'premium') {
+        baseCost += 0.05;
+        baseLatency += 200;
       }
-    }));
+    }
+
+    // Voice-based calculations
+    if (config.voice.provider === 'elevenlabs') {
+      baseCost += 0.03;
+      baseLatency += config.voice.speed > 1 ? 50 : 0;
+    }
+
+    return {
+      cost: Number(baseCost.toFixed(2)),
+      latency: Math.round(baseLatency)
+    };
   };
 
-  const performanceData = [
-    { date: '2024-01', "Success Rate": 92, "Response Time": 85, "User Satisfaction": 88 },
-    { date: '2024-02', "Success Rate": 94, "Response Time": 87, "User Satisfaction": 90 },
-    { date: '2024-03', "Success Rate": 93, "Response Time": 89, "User Satisfaction": 92 },
-    // Add more data points as needed
+  const handleConfigChange = (key: string, value: any, options?: { skipMetricsUpdate: boolean }) => {
+    const newConfig = produce<AssistantConfig>((draft) => {
+      set(draft, key, value);
+      return draft;
+    })(config);
+    
+    setConfig(newConfig);
+
+    // Only update metrics if skipMetricsUpdate is not true
+    if (!options?.skipMetricsUpdate) {
+      const newMetrics = calculateMetrics(newConfig);
+      setMetrics(newMetrics);
+    }
+  };
+
+  const tabs = [
+    { id: 'model', icon: <MessageSquare />, label: 'Model' },
+    { id: 'transcriber', icon: <Settings2 />, label: 'Transcriber' },
+    { id: 'voice', icon: <Mic />, label: 'Voice' },
+    { id: 'functions', icon: <PlayCircle />, label: 'Functions' }
   ];
 
   return (
-    <div className="p-4 bg-white">
-      <Card>
-        <div className="flex justify-between items-center mb-6">
-          <Title>Assistant Configuration</Title>
-          <div className="flex items-center gap-4">
-            <Text>ID: {assistantId}</Text>
-            <Button 
-              size="sm"
-              variant="secondary"
-              onClick={refreshData}
-              disabled={isRefreshing}
-              icon={RefreshCw}
-              className={isRefreshing ? 'animate-spin' : ''}
-            >
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
-          </div>
-        </div>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Assistant Configuration</h1>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            console.log('Testing assistant...', config);
+          }}
+          className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+        >
+          <Sparkles className="w-5 h-5 mr-2" />
+          <span>Test Assistant</span>
+        </motion.button>
+      </div>
 
-        <TabGroup index={['model', 'transcriber', 'voice', 'functions', 'advanced', 'analysis'].indexOf(activeTab)}
-                 onIndexChange={(index) => setActiveTab(['model', 'transcriber', 'voice', 'functions', 'advanced', 'analysis'][index])}>
-          <TabList>
-            <Tab icon={MessageSquare}>Model</Tab>
-            <Tab>Transcriber</Tab>
-            <Tab>Voice</Tab>
-            <Tab>Functions</Tab>
-            <Tab icon={Settings}>Advanced</Tab>
-            <Tab icon={BarChart3}>Analysis</Tab>
-          </TabList>
+      <Card className="mt-6">
+        <MetricsDisplay cost={metrics.cost} latency={metrics.latency} />
+        
+        <Tab.Group>
+          <Tab.List className="flex space-x-4 border-b border-gray-200 mb-6">
+            {tabs.map((tab) => (
+              <Tab
+                key={tab.id}
+                className={({ selected }) =>
+                  `flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none ${
+                    selected
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`
+                }
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </Tab>
+            ))}
+          </Tab.List>
 
-          <TabPanels>
-            <TabPanel>
-              <div className="space-y-4">
-                <div>
-                  <Text>First Message</Text>
-                  <input
-                    type="text"
-                    value={config.firstMessage}
-                    onChange={(e) => handleConfigUpdate({ firstMessage: e.target.value })}
-                    className="w-full p-2 border rounded mt-1"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
-                  <Select value={config.model.provider} onValueChange={handleProviderChange} disabled>
-                    <SelectItem value="openai">OpenAI</SelectItem>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                  <Select value={config.model.model} onValueChange={handleModelChange}>
-                    <SelectItem value="gpt-4">GPT 4</SelectItem>
-                    <SelectItem value="gpt-3.5-turbo">GPT 3.5 Turbo</SelectItem>
-                    <SelectItem value="gpt-4-turbo">GPT 4 Turbo</SelectItem>
-                    <SelectItem value="gpt-4-realtime">GPT 4 Realtime</SelectItem>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Knowledge Base</label>
-                  <Select disabled>
-                    <SelectItem value="select-files">Select Files</SelectItem>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Initial Message Prompt</label>
-                  <textarea
-                    value={messagePrompt}
-                    onChange={(e) => setMessagePrompt(e.target.value)}
-                    className="w-full p-2 border rounded mt-1 h-32"
-                    placeholder="Initial message prompt..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Temperature</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={config.model.temperature}
-                    onChange={(e) => handleConfigUpdate({ model: { ...config.model, temperature: parseFloat(e.target.value) } })}
-                    className="w-full"
-                  />
-                  <Text>{config.model.temperature}</Text>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Text>Detect Emotion</Text>
-                  <input
-                    type="checkbox"
-                    checked={config.model.emotionRecognitionEnabled}
-                    onChange={(e) => handleConfigUpdate({ model: { ...config.model, emotionRecognitionEnabled: e.target.checked } })}
-                    className="ml-2"
-                  />
-                </div>
-              </div>
-            </TabPanel>
-
-            <TabPanel>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
-                  <Select value={config.transcriber.provider} onValueChange={(value) => handleConfigUpdate({ transcriber: { ...config.transcriber, provider: value } })}>
-                    <SelectItem value="talkscriber">Talkscriber</SelectItem>
-                    <SelectItem value="google-cloud-speech-to-text">Google Cloud Speech-to-Text</SelectItem>
-                  </Select>
-                </div>
-
-                <div>
-                  <Text>Language</Text>
-                  <Select value={config.transcriber.language} onValueChange={(value) => handleConfigUpdate({ transcriber: { ...config.transcriber, language: value } })}>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="es">Spanish</SelectItem>
-                    <SelectItem value="fr">French</SelectItem>
-                  </Select>
-                </div>
-
-                <div>
-                  <Text>Model</Text>
-                  <Select value={config.transcriber.model} onValueChange={(value) => handleConfigUpdate({ transcriber: { ...config.transcriber, model: value } })}>
-                    <SelectItem value="whisper">Whisper</SelectItem>
-                    <SelectItem value="wav2vec">Wav2Vec</SelectItem>
-                  </Select>
-                </div>
-              </div>
-            </TabPanel>
-
-            <TabPanel>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
-                  <Select value={config.voice.provider} onValueChange={(value) => handleConfigUpdate({ voice: { ...config.voice, provider: value } })}>
-                    <SelectItem value="tavus">Tavus</SelectItem>
-                    <SelectItem value="google-cloud-text-to-speech">Google Cloud Text-to-Speech</SelectItem>
-                  </Select>
-                </div>
-
-                <div>
-                  <Text>Voice ID</Text>
-                  <Select value={config.voice.voiceId} onValueChange={(value) => handleConfigUpdate({ voice: { ...config.voice, voiceId: value } })}>
-                    <SelectItem value="default">Default</SelectItem>
-                    <SelectItem value="en-US-Wavenet-A">English (US) - Wavenet A</SelectItem>
-                    <SelectItem value="en-US-Wavenet-B">English (US) - Wavenet B</SelectItem>
-                  </Select>
-                </div>
-              </div>
-            </TabPanel>
-
-            {/* Other tab panels */}
-            <TabPanel>
-              <Text>Functions Configuration</Text>
-            </TabPanel>
-            <TabPanel>
-              <Text>Advanced Settings</Text>
-            </TabPanel>
-            <TabPanel>
-              <Text>Analysis Dashboard</Text>
-              <Card className="mt-6">
-                <Title>Performance Trends</Title>
-                <AreaChart
-                  className="mt-4 h-72"
-                  data={performanceData}
-                  index="date"
-                  categories={["Success Rate", "Response Time", "User Satisfaction"]}
-                  colors={["emerald", "blue", "purple"]}
-                />
-              </Card>
-            </TabPanel>
-          </TabPanels>
-        </TabGroup>
-
-        {/* Metrics Display */}
-        {metrics && (
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <Card>
-              <div className="flex items-center">
-                <Clock className="w-5 h-5 mr-2" />
-                <Text>Cost</Text>
-              </div>
-              <Title className="mt-2">${metrics.cost}/min</Title>
-            </Card>
-            <Card>
-              <div className="flex items-center">
-                <Clock className="w-5 h-5 mr-2" />
-                <Text>Latency</Text>
-              </div>
-              <Title className="mt-2">{metrics.latency}ms</Title>
-            </Card>
-          </div>
-        )}
-
-        {/* Message Input */}
-        <div className="mt-6">
-
-            <button
-              onClick={handleSendMessage}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Send
-            </button>
-        </div>
+          <Tab.Panels>
+            <Tab.Panel>
+              <ModelConfig config={config} onConfigChange={handleConfigChange} />
+            </Tab.Panel>
+            <Tab.Panel>
+              <TranscriberConfig config={config} onConfigChange={handleConfigChange} />
+            </Tab.Panel>
+            <Tab.Panel>
+              <VoiceConfig config={config} onConfigChange={handleConfigChange} />
+            </Tab.Panel>
+            <Tab.Panel>
+              <FunctionConfig config={config} onConfigChange={handleConfigChange} />
+            </Tab.Panel>
+          </Tab.Panels>
+        </Tab.Group>
       </Card>
+
+      <div className="fixed bottom-6 right-6 flex space-x-4">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            console.log('Saving as draft...', config);
+          }}
+          className="px-6 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+            />
+          </svg>
+          <span>Save Draft</span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            console.log('Sending to Vapi...', config);
+          }}
+          className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M14 5l7 7m0 0l-7 7m7-7H3"
+            />
+          </svg>
+          <span>Send to Vapi</span>
+        </motion.button>
+      </div>
     </div>
   );
-};
-
-export default VapiAnalytics;
+}

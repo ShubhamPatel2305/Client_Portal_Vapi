@@ -7,11 +7,15 @@ import {
   DateRangePickerValue,
   Grid,
   Button,
+  Card,
 } from '@tremor/react';
 import {
   FileText,
   Download,
   RefreshCw,
+  BarChart2,
+  PieChart,
+  TrendingUp,
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -20,8 +24,12 @@ import * as XLSX from 'xlsx';
 
 import { fetchAnalyticsData } from '../lib/api';
 import { Analytics } from '../lib/api/vapiService';
-import ChartCard from '../components/ChartCard';
 import { showToast } from '../components/Toast';
+import PerformanceReport from '../components/reports/PerformanceReport';
+import CallAnalyticsReport from '../components/reports/CallAnalyticsReport';
+import UserEngagementReport from '../components/reports/UserEngagementReport';
+import RegionalReport from '../components/reports/RegionalReport';
+import ComprehensiveReport from '../components/reports/ComprehensiveReport';
 
 const reportTypes = [
   { value: 'performance', label: 'Performance Report' },
@@ -74,8 +82,6 @@ export default function Reports() {
     doc.setFontSize(12);
     doc.text(`Period: ${format(dateRange.from!, 'PP')} - ${format(dateRange.to!, 'PP')}`, 20, 30);
 
-    // Add metrics based on report type
-    let yPos = 40;
     const metrics = [
       ['Total Call Minutes', data.totalCallMinutes.toString()],
       ['Number of Calls', data.numberOfCalls.toString()],
@@ -84,7 +90,7 @@ export default function Reports() {
     ];
 
     autoTable(doc, {
-      startY: yPos,
+      startY: 40,
       head: [['Metric', 'Value']],
       body: metrics,
     });
@@ -111,6 +117,25 @@ export default function Reports() {
     showToast('Report exported as Excel');
   };
 
+  const renderReport = () => {
+    if (!data) return null;
+
+    switch (selectedReport) {
+      case 'performance':
+        return <PerformanceReport data={data} loading={loading} />;
+      case 'calls':
+        return <CallAnalyticsReport data={data} loading={loading} />;
+      case 'user':
+        return <UserEngagementReport data={data} loading={loading} />;
+      case 'regional':
+        return <RegionalReport data={data} loading={loading} />;
+      case 'comprehensive':
+        return <ComprehensiveReport data={data} loading={loading} />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <motion.div
       className="p-4 md:p-8 min-h-screen bg-gray-50"
@@ -131,6 +156,7 @@ export default function Reports() {
             icon={RefreshCw}
             onClick={fetchData}
             loading={loading}
+            className="bg-white hover:bg-gray-50"
           >
             Refresh
           </Button>
@@ -140,6 +166,7 @@ export default function Reports() {
             icon={FileText}
             onClick={exportPDF}
             disabled={!data}
+            className="bg-white hover:bg-gray-50"
           >
             Export PDF
           </Button>
@@ -149,56 +176,44 @@ export default function Reports() {
             icon={Download}
             onClick={exportExcel}
             disabled={!data}
+            className="bg-white hover:bg-gray-50"
           >
             Export Excel
           </Button>
         </div>
       </div>
 
-      <Grid numItems={1} numItemsSm={2} className="gap-4 mb-6">
-        <Select
-          value={selectedReport}
-          onValueChange={(value) => setSelectedReport(value as ReportType)}
-        >
-          {reportTypes.map((type) => (
-            <SelectItem key={type.value} value={type.value}>
-              {type.label}
-            </SelectItem>
-          ))}
-        </Select>
-        <DateRangePicker
-          value={dateRange}
-          onValueChange={setDateRange}
-          selectPlaceholder="Select dates"
-          className="max-w-md mx-auto"
-        />
-      </Grid>
+      <Card className="mb-6">
+        <Grid numItems={1} numItemsSm={2} className="gap-4">
+          <Select
+            value={selectedReport}
+            onValueChange={(value) => setSelectedReport(value as ReportType)}
+            className="w-full"
+          >
+            {reportTypes.map((type) => (
+              <SelectItem key={type.value} value={type.value}>
+                {type.label}
+              </SelectItem>
+            ))}
+          </Select>
+          <DateRangePicker
+            value={dateRange}
+            onValueChange={setDateRange}
+            selectPlaceholder="Select dates"
+            className="w-full"
+          />
+        </Grid>
+      </Card>
 
-      <Grid numItems={1} numItemsSm={2} numItemsLg={3} className="gap-6 mt-6">
-        <ChartCard
-          title="Call Distribution"
-          chartData={data?.callDistribution || []}
-          chartType="donut"
-          categories={['value']}
-          loading={loading}
-        />
-
-        <ChartCard
-          title="Monthly Call Trend"
-          chartData={data?.monthlyTrend || []}
-          chartType="area"
-          categories={['calls', 'cost']}
-          loading={loading}
-        />
-
-        <ChartCard
-          title="Cost Analysis"
-          chartData={data?.costAnalysis || []}
-          chartType="bar"
-          categories={['amount']}
-          loading={loading}
-        />
-      </Grid>
+      <motion.div
+        key={selectedReport}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.3 }}
+      >
+        {renderReport()}
+      </motion.div>
     </motion.div>
   );
 }

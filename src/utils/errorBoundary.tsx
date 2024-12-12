@@ -72,7 +72,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </motion.button>
               </div>
               {import.meta.env.DEV && this.state.error && (
-                <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+                <div className="mt-6 p-4 rounded-lg">
                   <p className="font-mono text-sm text-red-600">
                     {this.state.error.toString()}
                   </p>

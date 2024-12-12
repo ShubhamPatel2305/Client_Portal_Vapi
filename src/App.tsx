@@ -33,7 +33,7 @@ const AuthLayout = () => (
 // Main layout wrapper for authenticated pages
 const MainLayout = () => (
   <AppLayout>
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen">
       <Sidebar />
       <div className="flex-1 overflow-auto">
         <Outlet />

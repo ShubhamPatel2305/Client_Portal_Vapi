@@ -209,7 +209,6 @@ interface ListCallsParams {
   updatedAtLe?: string;
 }
 
-
 const vapiClient = axios.create({
   baseURL: VAPI_BASE_URL,
   headers: {
@@ -274,6 +273,35 @@ const vapiAxios = axios.create({
 
 const client = new VapiClient({ token: VAPI_API_KEY });
 
+const mockAnalyticsData = {
+  total_calls: 150,
+  total_duration: 12000, // in seconds
+  average_duration: 80, // in seconds
+  total_cost: 300, // in currency
+  calls_by_status: {
+    completed: 120,
+    failed: 20,
+    unknown: 10,
+  },
+  calls_by_date: {
+    '2024-12-05': 20,
+    '2024-12-06': 30,
+    '2024-12-07': 25,
+    '2024-12-08': 15,
+    '2024-12-09': 10,
+    '2024-12-10': 20,
+    '2024-12-11': 30,
+  },
+  average_latency: 200, // in milliseconds
+  calls: Array(150).fill({
+    duration: 80,
+    cost: 2,
+    status: 'completed',
+    created_at: '2024-12-05T10:00:00Z',
+    latency: 200,
+  }),
+};
+
 export const vapiService = {
   // Get list of calls with pagination and filters
   getCalls: async (params: {
@@ -332,51 +360,8 @@ export const vapiService = {
     assistant_id?: string;
   }) => {
     try {
-      // First get all calls for the period
-      const callsResponse = await vapiAxios.get('/v1/calls', {
-        params: {
-          start_date: params.start_date,
-          end_date: params.end_date,
-          assistant_id: params.assistant_id,
-          limit: 1000
-        }
-      });
-
-      const calls = callsResponse.data.data || [];
-      
-      // Calculate analytics from calls data
-      const total_calls = calls.length;
-      const total_duration = calls.reduce((acc: number, call: any) => acc + (call.duration || 0), 0);
-      const average_duration = total_calls > 0 ? total_duration / total_calls : 0;
-      const total_cost = calls.reduce((acc: number, call: any) => acc + (call.cost || 0), 0);
-
-      // Calculate calls by status
-      const calls_by_status = calls.reduce((acc: Record<string, number>, call: any) => {
-        const status = call.status || 'unknown';
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-      }, {});
-
-      // Calculate calls by date
-      const calls_by_date = calls.reduce((acc: Record<string, number>, call: any) => {
-        const date = call.created_at?.split('T')[0] || 'unknown';
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
-      }, {});
-
-      // Calculate average latency
-      const average_latency = calls.reduce((acc: number, call: any) => acc + (call.latency || 0), 0) / total_calls;
-
-      return {
-        total_calls,
-        total_duration,
-        average_duration,
-        total_cost,
-        calls_by_status,
-        calls_by_date,
-        average_latency,
-        calls
-      };
+      // Return mock data instead of making an API call
+      return mockAnalyticsData;
     } catch (error: any) {
       console.error('Error fetching analytics:', error);
       throw new Error(error.response?.data?.message || 'Failed to fetch analytics');

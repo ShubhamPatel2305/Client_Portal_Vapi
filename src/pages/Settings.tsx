@@ -6,14 +6,15 @@ import {
   User, 
   Save,
   Shield,
-  Check
+  Check,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../stores/auth';
 import { useThemeStore } from '../stores/theme';
 import { auth } from '../lib/firebase';
 import { updateProfile, sendPasswordResetEmail, updateEmail } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, DocumentData } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 interface UserSettings {
@@ -34,7 +35,7 @@ const languages = [
   { value: 'es', label: 'Spanish' },
   { value: 'fr', label: 'French' },
   { value: 'de', label: 'German' },
-];
+] as const;
 
 const timezones = [
   { value: 'UTC-8', label: 'Pacific Time (PT)' },
@@ -42,7 +43,7 @@ const timezones = [
   { value: 'UTC+0', label: 'Greenwich Mean Time (GMT)' },
   { value: 'UTC+1', label: 'Central European Time (CET)' },
   { value: 'UTC+5:30', label: 'India Standard Time (IST)' },
-];
+] as const;
 
 export default function Settings() {
   const { user } = useAuthStore();
@@ -176,7 +177,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4 sm:p-6 lg:p-8">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -188,9 +189,18 @@ export default function Settings() {
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.5 }}
+            className="space-y-2"
           >
-            <Title className="text-2xl sm:text-3xl font-bold text-gray-900">Settings</Title>
-            <Text className="text-sm sm:text-base text-gray-600">Manage your account settings and preferences</Text>
+            <div className="inline-block">
+              <motion.div
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 text-transparent bg-clip-text"
+                whileHover={{ scale: 1.05 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <Title className="text-3xl sm:text-4xl font-bold">Settings</Title>
+              </motion.div>
+            </div>
+            <Text className="text-gray-600">Manage your account settings and preferences</Text>
           </motion.div>
         </div>
 
@@ -200,44 +210,86 @@ export default function Settings() {
             variants={cardVariants}
             initial="hidden"
             animate="visible"
-            className="relative"
+            className="space-y-6"
           >
-            <Card className="overflow-hidden">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <User className="h-5 w-5 text-blue-600" />
+            <Card className="bg-white/90 backdrop-blur-lg shadow-lg p-6">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 border-b border-gray-200 pb-4">
+                  <div className="p-2 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-lg">
+                    <User className="h-6 w-6 text-indigo-600" />
                   </div>
                   <div>
                     <Title className="text-xl font-semibold">Profile Information</Title>
                     <Text className="text-sm text-gray-600">Update your personal details</Text>
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <Text className="mb-2 text-sm font-medium">First Name</Text>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <motion.div whileHover={{ scale: 1.02 }} className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">First Name</label>
                     <TextInput
-                      placeholder="Enter your first name"
                       value={settings.firstName}
                       onChange={(e) => setSettings({ ...settings, firstName: e.target.value })}
+                      placeholder="Enter your first name"
+                      className="w-full"
                     />
-                  </div>
-                  <div>
-                    <Text className="mb-2 text-sm font-medium">Email</Text>
+                  </motion.div>
+
+                  <motion.div whileHover={{ scale: 1.02 }} className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Last Name</label>
                     <TextInput
-                      placeholder="Enter your email"
+                      value={settings.lastName}
+                      onChange={(e) => setSettings({ ...settings, lastName: e.target.value })}
+                      placeholder="Enter your last name"
+                      className="w-full"
+                    />
+                  </motion.div>
+
+                  <motion.div whileHover={{ scale: 1.02 }} className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Email</label>
+                    <TextInput
                       value={settings.email}
                       onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                      placeholder="Enter your email"
+                      type="email"
+                      className="w-full"
                     />
+                  </motion.div>
+
+                  <motion.div whileHover={{ scale: 1.02 }} className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Phone</label>
+                    <TextInput
+                      value={settings.phone}
+                      onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                      placeholder="Enter your phone number"
+                      type="tel"
+                      className="w-full"
+                    />
+                  </motion.div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Preferences */}
+            <Card className="bg-white/90 backdrop-blur-lg shadow-lg p-6">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 border-b border-gray-200 pb-4">
+                  <div className="p-2 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg">
+                    <SettingsIcon className="h-6 w-6 text-purple-600" />
                   </div>
                   <div>
-                    <Text className="mb-2 text-sm font-medium">Language</Text>
+                    <Title className="text-xl font-semibold">Preferences</Title>
+                    <Text className="text-sm text-gray-600">Customize your experience</Text>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <motion.div whileHover={{ scale: 1.02 }} className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Language</label>
                     <Select
                       value={settings.language}
                       onValueChange={(value) => setSettings({ ...settings, language: value })}
+                      className="w-full"
                     >
                       {languages.map((lang) => (
                         <SelectItem key={lang.value} value={lang.value}>
@@ -245,31 +297,14 @@ export default function Settings() {
                         </SelectItem>
                       ))}
                     </Select>
-                  </div>
-                </div>
+                  </motion.div>
 
-                <div className="space-y-4">
-                  <div>
-                    <Text className="mb-2 text-sm font-medium">Last Name</Text>
-                    <TextInput
-                      placeholder="Enter your last name"
-                      value={settings.lastName}
-                      onChange={(e) => setSettings({ ...settings, lastName: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Text className="mb-2 text-sm font-medium">Phone</Text>
-                    <TextInput
-                      placeholder="Enter your phone number"
-                      value={settings.phone}
-                      onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Text className="mb-2 text-sm font-medium">Timezone</Text>
+                  <motion.div whileHover={{ scale: 1.02 }} className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Timezone</label>
                     <Select
                       value={settings.timezone}
                       onValueChange={(value) => setSettings({ ...settings, timezone: value })}
+                      className="w-full"
                     >
                       {timezones.map((tz) => (
                         <SelectItem key={tz.value} value={tz.value}>
@@ -277,113 +312,113 @@ export default function Settings() {
                         </SelectItem>
                       ))}
                     </Select>
-                  </div>
+                  </motion.div>
+
+                  <motion.div whileHover={{ scale: 1.02 }} className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Theme</label>
+                    <Select
+                      value={settings.theme}
+                      onValueChange={(value) => setSettings({ ...settings, theme: value as ThemeType })}
+                      className="w-full"
+                    >
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="system">System</SelectItem>
+                    </Select>
+                  </motion.div>
                 </div>
               </div>
             </Card>
-          </motion.div>
 
-          {/* Security Settings */}
-          <motion.div
-            variants={cardVariants}
-            initial="hidden"
-            animate="visible"
-            className="relative"
-          >
-            <Card className="overflow-hidden">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Shield className="h-5 w-5 text-purple-600" />
+            {/* Security */}
+            <Card className="bg-white/90 backdrop-blur-lg shadow-lg p-6">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 border-b border-gray-200 pb-4">
+                  <div className="p-2 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-lg">
+                    <Shield className="h-6 w-6 text-emerald-600" />
                   </div>
                   <div>
                     <Title className="text-xl font-semibold">Security</Title>
-                    <Text className="text-sm text-gray-600">Manage your security preferences</Text>
+                    <Text className="text-sm text-gray-600">Manage your account security</Text>
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <Text className="mb-2 text-sm font-medium">Password</Text>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Text className="font-medium">Password Reset</Text>
+                    <Text className="text-sm text-gray-600">Send a password reset email</Text>
+                  </div>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <TremorButton
-                      icon={Lock}
-                      variant="secondary"
+                      size="lg"
+                      color="indigo"
                       onClick={handlePasswordReset}
-                      loading={isResettingPassword}
-                      className="w-full sm:w-auto"
+                      disabled={isResettingPassword}
                     >
-                      Reset Password
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4" />
+                        Reset Password
+                      </div>
                     </TremorButton>
-                    <AnimatePresence>
-                      {showPasswordResetConfirm && (
-                        <motion.span
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 10 }}
-                          className="text-sm text-green-600 flex items-center gap-1"
-                        >
-                          <Check className="h-4 w-4" />
-                          Reset email sent!
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-
-                <div>
-                  <Text className="mb-2 text-sm font-medium">Theme</Text>
-                  <Select
-                    value={settings.theme}
-                    onValueChange={(value) => setSettings({ ...settings, theme: value as ThemeType })}
-                  >
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                  </Select>
+                  </motion.div>
                 </div>
               </div>
             </Card>
+
+            {/* Save Button */}
+            <motion.div
+              className="flex justify-end"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <TremorButton
+                  size="lg"
+                  color="indigo"
+                  onClick={handleSaveSettings}
+                  disabled={isSaving}
+                >
+                  <div className="flex items-center gap-2">
+                    {showSaveSuccess ? (
+                      <motion.div
+                        variants={successIconVariants}
+                        initial="hidden"
+                        animate="visible"
+                      >
+                        <Check className="h-4 w-4" />
+                      </motion.div>
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    {isSaving ? 'Saving...' : (showSaveSuccess ? 'Saved!' : 'Save Changes')}
+                  </div>
+                </TremorButton>
+              </motion.div>
+            </motion.div>
           </motion.div>
         </div>
-
-        {/* Save Button */}
-        <motion.div
-          className="flex justify-end items-center gap-4 sticky bottom-4 sm:bottom-8 mt-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <TremorButton
-            icon={Save}
-            onClick={handleSaveSettings}
-            loading={isSaving}
-            loadingText="Saving..."
-            size="lg"
-            className="w-full sm:w-auto"
-          >
-            Save Changes
-          </TremorButton>
-
-          <AnimatePresence>
-            {showSaveSuccess && (
-              <motion.div
-                variants={successIconVariants}
-                initial="hidden"
-                animate="visible"
-                exit="hidden"
-                className="flex items-center gap-2 text-green-600"
-              >
-                <div className="p-1 bg-green-100 rounded-full">
-                  <Check className="h-4 w-4" />
-                </div>
-                <span className="text-sm font-medium">Saved!</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
       </motion.div>
+
+      {/* Password Reset Confirmation */}
+      <AnimatePresence>
+        {showPasswordResetConfirm && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg"
+          >
+            <div className="flex items-center gap-2">
+              <Check className="h-5 w-5" />
+              <Text className="text-white">Password reset email sent!</Text>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

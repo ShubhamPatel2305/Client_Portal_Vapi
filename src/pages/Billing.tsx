@@ -134,7 +134,7 @@ export default function Billing() {
                 </div>
                 <PieChart className="h-8 w-8 text-indigo-600" />
               </div>
-              <div className="mt-2 h-2 bg-gray-100 rounded-full">
+              <div className="mt-2 h-2 rounded-full">
                 <div
                   className="h-2 bg-indigo-600 rounded-full transition-all duration-500"
                   style={{ width: `${(currentUsage / usageLimit) * 100}%` }}

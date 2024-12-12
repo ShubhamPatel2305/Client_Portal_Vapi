@@ -21,10 +21,11 @@ export interface Analytics {
   totalSpentTrend: { value: number; label: string };
   avgCostPerCall: number;
   avgCostPerCallTrend: { value: number; label: string };
-  callDistribution: { name: string; value: number }[];
-  costAnalysis: { date: string; value: number }[];
-  monthlyCallData: { date: string; value: number }[];
+  callDistribution: { name: string; value: number; color: string; trend: number; count: number }[];
+  costAnalysis: { category: string; amount: number }[];
+  monthlyCallData: { date: string; totalCalls: number; totalCost: number; calls: { callId: string; cost: number; duration: number; timestamp: string; status: 'success' | 'failed' | 'pending'; type: 'inbound' | 'outbound' }[] }[];
   recentCalls: Call[];
+  regionalData: { name: string; value: number; color: string; trend: number; count: number }[];
 }
 
 // Generate mock calls
@@ -44,7 +45,7 @@ const generateMockCalls = (count: number): Call[] => {
 
 // Generate mock analytics
 const generateMockAnalytics = (): Analytics => {
-  const calls = generateMockCalls(50);
+  const calls = generateMockCalls(100);
   const totalCalls = calls.length;
   const avgDuration = calls.reduce((sum, call) => sum + call.duration, 0) / totalCalls;
   const totalCost = calls.reduce((sum, call) => sum + call.cost, 0);
@@ -58,33 +59,70 @@ const generateMockAnalytics = (): Analytics => {
   const callDistribution = Object.entries(statusCounts).map(([name, count]) => ({
     name,
     value: (count / totalCalls) * 100,
+    color: name === 'success' ? '#10B981' : name === 'failed' ? '#EF4444' : '#F59E0B',
+    trend: faker.number.int({ min: -10, max: 10 }),
+    count,
   }));
 
-  // Generate monthly data
+  // Generate monthly data with realistic trends
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  const monthlyCallData = months.map(month => ({
-    date: `${month} 2024`,
-    value: faker.number.int({ min: 100, max: 500 }),
+  const baseCallVolume = faker.number.int({ min: 300, max: 400 });
+  const monthlyGrowth = faker.number.int({ min: 5, max: 15 });
+
+  const monthlyCallData = months.map((month, index) => {
+    const growth = 1 + (monthlyGrowth / 100) * index;
+    const calls = Math.floor(baseCallVolume * growth);
+    const avgCostPerCall = faker.number.float({ min: 8, max: 12, precision: 0.01 });
+    return {
+      date: `${month} 2024`,
+      totalCalls: calls,
+      totalCost: calls * avgCostPerCall,
+      calls: calls.map(() => ({
+        callId: faker.string.uuid(),
+        cost: avgCostPerCall,
+        duration: faker.number.int({ min: 120, max: 600 }),
+        timestamp: faker.date.recent().toISOString(),
+        status: faker.helpers.arrayElement(['success', 'failed', 'pending']),
+        type: faker.helpers.arrayElement(['inbound', 'outbound']),
+      })),
+    };
+  });
+
+  const costAnalysis = months.map((month, index) => ({
+    category: `${month} 2024`,
+    amount: monthlyCallData[index].totalCost,
   }));
 
-  const costAnalysis = months.map(month => ({
-    date: `${month} 2024`,
-    value: faker.number.int({ min: 1000, max: 5000 }),
+  // Generate regional data
+  const regions = ['North America', 'Europe', 'Asia Pacific', 'Latin America', 'Africa'];
+  const regionalData = regions.map(region => ({
+    name: region,
+    value: faker.number.int({ min: 100, max: 1000 }),
+    color: faker.helpers.arrayElement(['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']),
+    trend: faker.number.int({ min: -10, max: 10 }),
+    count: faker.number.int({ min: 50, max: 200 }),
   }));
+
+  // Calculate realistic trends
+  const previousTotalMinutes = avgDuration * totalCalls * 0.9;
+  const previousTotalCalls = totalCalls * 0.9;
+  const previousTotalSpent = totalCost * 0.85;
+  const previousAvgCost = previousTotalSpent / previousTotalCalls;
 
   return {
     totalCallMinutes: avgDuration * totalCalls,
-    totalCallMinutesTrend: { value: faker.number.int({ min: -20, max: 20 }), label: 'vs last period' },
+    totalCallMinutesTrend: { value: ((avgDuration * totalCalls - previousTotalMinutes) / previousTotalMinutes) * 100, label: 'vs last period' },
     numberOfCalls: totalCalls,
-    numberOfCallsTrend: { value: faker.number.int({ min: -10, max: 10 }), label: 'vs last period' },
+    numberOfCallsTrend: { value: ((totalCalls - previousTotalCalls) / previousTotalCalls) * 100, label: 'vs last period' },
     totalSpent: totalCost,
-    totalSpentTrend: { value: faker.number.int({ min: -15, max: 15 }), label: 'vs last period' },
+    totalSpentTrend: { value: ((totalCost - previousTotalSpent) / previousTotalSpent) * 100, label: 'vs last period' },
     avgCostPerCall: totalCost / totalCalls,
-    avgCostPerCallTrend: { value: faker.number.int({ min: -15, max: 15 }), label: 'vs last period' },
+    avgCostPerCallTrend: { value: ((totalCost / totalCalls - previousAvgCost) / previousAvgCost) * 100, label: 'vs last period' },
     callDistribution,
     costAnalysis,
     monthlyCallData,
-    recentCalls: calls,
+    recentCalls: calls.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 10),
+    regionalData,
   };
 };
 

@@ -45,7 +45,7 @@ export default function CallsList({ calls }: CallsListProps) {
         {calls.map((call) => (
           <div
             key={call.id}
-            className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-4 bg-gray-50 rounded-lg transition-colors"
           >
             <div className="flex justify-between items-center">
               <div>

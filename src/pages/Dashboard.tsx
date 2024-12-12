@@ -368,7 +368,7 @@ export default function Dashboard() {
             <Text className="text-lg text-gray-500 flex items-center gap-2">
               <span>Last updated: {format(new Date(), 'MMM d, yyyy, h:mm a')}</span>
               {user?.email && (
-                <span className="text-sm px-3 py-1 bg-gray-100 rounded-full">
+                <span className="text-sm px-3 py-1 rounded-full">
                   {user.email}
                 </span>
               )}
