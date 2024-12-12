@@ -77,14 +77,14 @@ const generateMockAnalytics = (): Analytics => {
       date: `${month} 2024`,
       totalCalls: calls,
       totalCost: calls * avgCostPerCall,
-      calls: calls.map(() => ({
-        callId: faker.string.uuid(),
-        cost: avgCostPerCall,
-        duration: faker.number.int({ min: 120, max: 600 }),
-        timestamp: faker.date.recent().toISOString(),
-        status: faker.helpers.arrayElement(['success', 'failed', 'pending']),
-        type: faker.helpers.arrayElement(['inbound', 'outbound']),
-      })),
+      // calls: calls.map(() => ({
+      //   callId: faker.string.uuid(),
+      //   cost: avgCostPerCall,
+      //   duration: faker.number.int({ min: 120, max: 600 }),
+      //   timestamp: faker.date.recent().toISOString(),
+      //   status: faker.helpers.arrayElement(['success', 'failed', 'pending']),
+      //   type: faker.helpers.arrayElement(['inbound', 'outbound']),
+      // })),
     };
   });
 
