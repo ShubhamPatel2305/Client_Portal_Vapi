@@ -14,11 +14,14 @@ import {
   User,
   ChevronUp,
   BarChart3,
+  DollarSign,
+  Bot,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuthStore } from '../stores/auth';
 import { useLayoutStore } from '../stores/layout';
 import { usePageStore } from '../stores/pageStore';
+import ProfileMenu from './ProfileMenu';
 
 interface SidebarProps {
   className?: string;
@@ -26,21 +29,19 @@ interface SidebarProps {
 
 const sidebarVariants = {
   open: {
-    width: '16rem',
+    width: "var(--sidebar-width)",
     transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 40,
-      mass: 1
+      duration: 0.3,
+      ease: [0.4, 0, 0.2, 1],
+      type: "tween"
     }
   },
   closed: {
-    width: '5rem',
+    width: "var(--sidebar-collapsed-width)",
     transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 40,
-      mass: 1
+      duration: 0.3,
+      ease: [0.4, 0, 0.2, 1],
+      type: "tween"
     }
   }
 };
@@ -49,43 +50,38 @@ const itemVariants = {
   open: {
     opacity: 1,
     x: 0,
+    display: "block",
     transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 40
+      duration: 0.2,
+      ease: "easeOut"
     }
   },
   closed: {
     opacity: 0,
-    x: -10,
+    x: -4,
+    transitionEnd: {
+      display: "none"
+    },
     transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 40
+      duration: 0.2,
+      ease: "easeIn"
     }
   }
-};
-
-const iconVariants = {
-  open: { scale: 1 },
-  closed: { scale: 0.9 }
 };
 
 const mobileMenuVariants = {
   open: {
     x: 0,
     transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 40
+      duration: 0.2,
+      ease: "easeOut"
     }
   },
   closed: {
     x: "-100%",
     transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 40
+      duration: 0.2,
+      ease: "easeIn"
     }
   }
 };
@@ -94,7 +90,7 @@ export default function Sidebar({ className }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { isCollapsed, toggleSidebar } = useLayoutStore();
-  const { setCurrentPage, shouldRefresh } = usePageStore();
+  const { setCurrentPage } = usePageStore();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -105,21 +101,20 @@ export default function Sidebar({ className }: SidebarProps) {
     { name: 'Vapi Analytics', path: '/vapi', icon: LineChart },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Reports', path: '/reports', icon: FileText },
+    { name: 'Billing', path: '/billing', icon: DollarSign },
+    { name: 'AI Calling', path: '/ai-calling', icon: Bot },
     { name: 'Team', path: '/team', icon: Users },
     { name: 'Settings', path: '/settings', icon: Settings },
     { name: 'Support', path: '/support', icon: HelpCircle },
   ];
 
-  // Handle mobile menu close on route change
   useEffect(() => {
     setIsMobileOpen(false);
     setIsProfileMenuOpen(false);
   }, [location.pathname]);
 
-  // Handle mobile menu close on resize with debounce
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-    
     const handleResize = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
@@ -137,7 +132,6 @@ export default function Sidebar({ className }: SidebarProps) {
     };
   }, []);
 
-  // Handle click outside for profile menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
@@ -150,7 +144,7 @@ export default function Sidebar({ className }: SidebarProps) {
   }, []);
 
   const handleNavigation = (path: string) => {
-    const pageName = path.substring(1); // Remove leading slash
+    const pageName = path.substring(1);
     if (location.pathname !== path) {
       setCurrentPage(pageName);
       navigate(path, { replace: true });
@@ -160,9 +154,80 @@ export default function Sidebar({ className }: SidebarProps) {
     }
   };
 
+  const firstName = user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || '';
+
   return (
     <>
-      {/* Mobile Menu Button */}
+      <style>
+        {`
+          :root {
+            --sidebar-width: 16rem;
+            --sidebar-collapsed-width: 5rem;
+            --sidebar-duration: 0.3s;
+          }
+
+          @media (max-width: 768px) {
+            :root {
+              --sidebar-width: 16rem;
+              --sidebar-collapsed-width: 0rem;
+            }
+          }
+
+          .sidebar-content {
+            width: var(--sidebar-width);
+            transition: width var(--sidebar-duration) ease;
+          }
+
+          .sidebar-collapsed .sidebar-content {
+            width: var(--sidebar-collapsed-width);
+          }
+
+          .nav-item {
+            position: relative;
+            transition: all var(--sidebar-duration) ease;
+          }
+
+          .nav-item:hover {
+            transform: translateX(4px);
+          }
+
+          .nav-icon {
+            min-width: 1.5rem;
+            min-height: 1.5rem;
+            transition: transform var(--sidebar-duration) ease;
+          }
+
+          .nav-text {
+            transition: opacity var(--sidebar-duration) ease, transform var(--sidebar-duration) ease;
+          }
+
+          .sidebar-collapsed .nav-icon {
+            transform: scale(1.1);
+          }
+
+          .nav-tooltip {
+            position: absolute;
+            left: calc(100% + 1rem);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            opacity: 0;
+            transform: translateX(-0.5rem);
+            pointer-events: none;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            z-index: 50;
+          }
+
+          .sidebar-collapsed .nav-item:hover .nav-tooltip {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        `}
+      </style>
+
       <motion.button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         className={cn(
@@ -177,49 +242,49 @@ export default function Sidebar({ className }: SidebarProps) {
         <Menu className="w-5 h-5 text-gray-600" />
       </motion.button>
 
-      {/* Sidebar */}
       <motion.aside
         initial={false}
         animate={isCollapsed ? "closed" : "open"}
         variants={window.innerWidth >= 768 ? sidebarVariants : mobileMenuVariants}
         className={cn(
-          'fixed top-0 left-0 z-40 h-screen',
+          'sidebar fixed top-0 left-0 z-40 h-screen',
           'bg-white/95 backdrop-blur-xl',
-          'border-r border-gray-200/50 shadow-xl',
-          'transition-colors duration-300',
+          'border-r border-gray-200/50',
+          'transition-[box-shadow] duration-150',
           'md:translate-x-0',
-          'w-64 md:w-auto',
           'transform',
           isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           'touch-none',
+          isCollapsed ? 'shadow-sm sidebar-collapsed' : 'shadow-xl',
           className
         )}
+        style={{
+          width: isCollapsed ? 'var(--sidebar-collapsed-width)' : 'var(--sidebar-width)'
+        }}
       >
         <div className="flex flex-col h-full">
-          {/* Logo Section */}
           <div className="p-4 flex items-center justify-between border-b border-gray-200/50">
             <motion.div
               onClick={() => handleNavigation('/')}
-              className="flex items-center gap-2 cursor-pointer"
+              className="flex items-center gap-3 cursor-pointer"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <motion.div 
-                className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0"
-                variants={iconVariants}
-                animate={isCollapsed ? "closed" : "open"}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <span className="text-white font-bold text-lg">T</span>
-              </motion.div>
+              <img 
+                src="/src/assets/Logo asset 4.png" 
+                alt="Logo" 
+                className="w-10 h-10 object-contain transition-transform duration-300"
+                style={{
+                  transform: isCollapsed ? 'scale(0.9)' : 'scale(1)'
+                }}
+              />
               <AnimatePresence mode="wait">
                 {(!isCollapsed || window.innerWidth < 768) && (
                   <motion.span
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 40 }}
+                    variants={itemVariants}
+                    initial="closed"
+                    animate="open"
+                    exit="closed"
                     className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap"
                   >
                     TopEdge
@@ -228,7 +293,6 @@ export default function Sidebar({ className }: SidebarProps) {
               </AnimatePresence>
             </motion.div>
 
-            {/* Toggle Button - Only show on desktop */}
             <motion.button
               onClick={toggleSidebar}
               className={cn(
@@ -243,13 +307,12 @@ export default function Sidebar({ className }: SidebarProps) {
             >
               <motion.div
                 animate={{ rotate: isCollapsed ? 180 : 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 40 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
               >
                 <ChevronLeft className="w-4 h-4 text-gray-600" />
               </motion.div>
             </motion.button>
 
-            {/* Mobile Close Button */}
             <motion.button
               onClick={() => setIsMobileOpen(false)}
               className={cn(
@@ -264,40 +327,31 @@ export default function Sidebar({ className }: SidebarProps) {
             </motion.button>
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 px-2 md:px-3 py-4 overflow-y-auto overscroll-contain">
-            <ul className="space-y-0.5 md:space-y-1">
+            <ul className="space-y-1">
               {navigationItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 const Icon = item.icon;
                 
                 return (
-                  <motion.li key={item.path}>
+                  <motion.li key={item.path} className="nav-item">
                     <motion.div
                       onClick={() => handleNavigation(item.path)}
                       className={cn(
-                        'flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5 rounded-xl cursor-pointer',
-                        'transition-all duration-200 relative group',
+                        'flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer',
+                        'transition-colors duration-200',
                         'hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-purple-50/80',
                         'active:from-blue-100/80 active:to-purple-100/80',
                         'touch-manipulation',
-                        isActive && 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-600'
+                        isActive && 'bg-gradient-to-r from-blue-50 to-purple-50'
                       )}
-                      whileHover={{ x: 4 }}
-                      whileTap={{ scale: 0.98 }}
                     >
-                      <motion.div 
-                        className="flex-shrink-0 w-5 h-5"
-                        variants={iconVariants}
-                        animate={isCollapsed ? "closed" : "open"}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                      >
+                      <div className="nav-icon">
                         <Icon className={cn(
-                          'w-full h-full transition-colors',
+                          'w-5 h-5 transition-colors',
                           isActive ? 'text-blue-600' : 'text-gray-600 group-hover:text-blue-600'
                         )} />
-                      </motion.div>
+                      </div>
                       
                       <AnimatePresence mode="wait">
                         {(!isCollapsed || window.innerWidth < 768) && (
@@ -307,8 +361,8 @@ export default function Sidebar({ className }: SidebarProps) {
                             animate="open"
                             exit="closed"
                             className={cn(
-                              'text-sm font-medium whitespace-nowrap',
-                              isActive ? 'text-blue-600' : 'text-gray-600 group-hover:text-blue-600'
+                              'nav-text text-sm font-medium whitespace-nowrap',
+                              isActive ? 'text-blue-600' : 'text-gray-600'
                             )}
                           >
                             {item.name}
@@ -316,22 +370,10 @@ export default function Sidebar({ className }: SidebarProps) {
                         )}
                       </AnimatePresence>
 
-                      {/* Tooltip for collapsed state - Only show on desktop */}
                       {isCollapsed && window.innerWidth >= 768 && (
-                        <motion.div
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 0, x: -10 }}
-                          whileHover={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className={cn(
-                            'absolute left-full ml-2 px-2 py-1',
-                            'bg-gray-900/90 text-white text-xs rounded-lg',
-                            'pointer-events-none whitespace-nowrap z-50',
-                            'shadow-lg backdrop-blur-sm'
-                          )}
-                        >
+                        <div className="nav-tooltip">
                           {item.name}
-                        </motion.div>
+                        </div>
                       )}
                     </motion.div>
                   </motion.li>
@@ -340,132 +382,66 @@ export default function Sidebar({ className }: SidebarProps) {
             </ul>
           </nav>
 
-          {/* Profile Section */}
-          <div className="border-t border-gray-200/50 p-2 md:p-3 relative" ref={profileMenuRef}>
+          <div
+            ref={profileMenuRef}
+            className={cn(
+              "relative mt-auto border-t border-gray-200",
+              isCollapsed && "border-transparent"
+            )}
+          >
             <motion.button
-              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
               className={cn(
-                'w-full flex items-center gap-2 md:gap-3 p-2 md:p-2.5 rounded-xl',
-                'bg-gradient-to-r from-blue-50/50 to-purple-50/50',
-                'hover:from-blue-100/50 hover:to-purple-100/50',
-                'active:from-blue-200/50 active:to-purple-200/50',
-                'border border-blue-100/50',
-                'transition-all duration-200 shadow-sm',
-                'touch-manipulation',
-                'group relative'
+                "w-full p-3 flex items-center space-x-3 hover:bg-gray-50 transition-all duration-200",
+                isProfileMenuOpen && "bg-gray-50"
               )}
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                {user?.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={firstName}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-white" />
+                )}
+              </div>
               <motion.div
-                className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center"
-                variants={iconVariants}
+                variants={itemVariants}
                 animate={isCollapsed ? "closed" : "open"}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
+                className="flex-grow min-w-0"
               >
-                <User className="w-4 h-4 text-white" />
+                <div className="flex items-center justify-between">
+                  <div className="truncate">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {firstName}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {user?.email}
+                    </p>
+                  </div>
+                  <motion.div
+                    animate={{ rotate: isProfileMenuOpen ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                  </motion.div>
+                </div>
               </motion.div>
-              
-              <AnimatePresence mode="wait">
-                {(!isCollapsed || window.innerWidth < 768) && (
-                  <motion.div
-                    variants={itemVariants}
-                    initial="closed"
-                    animate="open"
-                    exit="closed"
-                    className="flex-1 flex items-center justify-between"
-                  >
-                    <div className="flex flex-col items-start">
-                      <span className="text-sm font-medium text-gray-900">
-                        {user?.email?.split('@')[0] || 'User'}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {user?.email || 'user@example.com'}
-                      </span>
-                    </div>
-                    <ChevronUp
-                      className={cn(
-                        'w-4 h-4 text-gray-500 transition-transform duration-300',
-                        isProfileMenuOpen && 'rotate-180'
-                      )}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Profile Menu */}
-              <AnimatePresence>
-                {isProfileMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 40 }}
-                    className={cn(
-                      'absolute w-[calc(100%-1rem)] md:w-[calc(100%-1.5rem)]',
-                      'bottom-full left-2 md:left-3 mb-2',
-                      'p-1.5 md:p-2 bg-white rounded-xl',
-                      'shadow-lg border border-gray-200/50',
-                      'backdrop-blur-xl z-50'
-                    )}
-                  >
-                    <div className="space-y-1">
-                      <motion.button
-                        onClick={() => {
-                          handleNavigation('/settings');
-                          setIsProfileMenuOpen(false);
-                        }}
-                        className={cn(
-                          'w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5 rounded-lg text-sm',
-                          'text-gray-600 hover:bg-gray-50',
-                          'transition-colors duration-200'
-                        )}
-                        whileHover={{ x: 4 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span>Settings</span>
-                      </motion.button>
-
-                      <motion.button
-                        onClick={() => {
-                          logout();
-                          navigate('/login');
-                        }}
-                        className={cn(
-                          'w-full flex items-center gap-2 md:gap-3 px-2 md:px-3 py-2 md:py-2.5 rounded-lg text-sm',
-                          'text-red-600 hover:bg-red-50',
-                          'transition-colors duration-200'
-                        )}
-                        whileHover={{ x: 4 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <LogOut className="w-4 h-4" />
-                        <span>Log Out</span>
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </motion.button>
+
+            {/* Profile Menu */}
+            <ProfileMenu
+              isOpen={isProfileMenuOpen}
+              onClose={() => setIsProfileMenuOpen(false)}
+              firstName={firstName}
+            />
           </div>
         </div>
       </motion.aside>
-
-      {/* Mobile Backdrop */}
-      <AnimatePresence>
-        {isMobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30 md:hidden"
-            onClick={() => setIsMobileOpen(false)}
-          />
-        )}
-      </AnimatePresence>
     </>
   );
 }

@@ -10,10 +10,12 @@ import Reports from './pages/Reports';
 import Team from './pages/Team';
 import Settings from './pages/Settings';
 import Support from './pages/Support';
+import Billing from './pages/Billing'; // Added import statement for Billing
 import AuthGuard from './components/AuthGuard';
 import AppLayout from './components/AppLayout';
 import Sidebar from './components/Sidebar';
 import { ThemeProvider } from './components/ThemeProvider';
+import './i18n'; // Import i18n configuration
 
 // Configure React Router future flags
 const routerConfig = {
@@ -67,6 +69,7 @@ export default function App() {
               <Route path="/team" element={<Team />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/billing" element={<Billing />} />
             </Route>
           </Route>
 

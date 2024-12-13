@@ -54,7 +54,6 @@ import { fetchDashboardData } from '../lib/api';
 import { Analytics } from '../lib/api/vapiService';
 import { useAuthStore } from '../stores/auth';
 import { usePageStore } from '../stores/pageStore';
-import { showToast } from '../components/Toast';
 
 // Add these utility functions at the top of the file
 const formatMonthYear = (dateStr: string): string => {
@@ -196,7 +195,6 @@ export default function Dashboard() {
         setCalls(callsData);
       } catch (error) {
         console.error('Error loading calls:', error);
-        showToast('Failed to load calls', 'error');
       } finally {
         setLoadingCalls(false);
       }
@@ -217,13 +215,11 @@ export default function Dashboard() {
       if (result) {
         setData(result);
         updateLastRefresh('dashboard');
-        showToast('Dashboard loaded successfully');
       } else {
-        showToast('No dashboard data available', 'error');
+        console.log('No dashboard data available');
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      showToast('Failed to load dashboard data', 'error');
     } finally {
       setLoading(false);
     }
@@ -236,13 +232,11 @@ export default function Dashboard() {
       if (newData) {
         setData(newData);
         updateLastRefresh('dashboard');
-        showToast('Dashboard refreshed successfully');
       } else {
-        showToast('No dashboard data available', 'error');
+        console.log('No dashboard data available');
       }
     } catch (error) {
       console.error('Error refreshing dashboard data:', error);
-      showToast('Failed to refresh dashboard data', 'error');
     } finally {
       setIsRefreshing(false);
     }
@@ -1247,7 +1241,6 @@ export default function Dashboard() {
         onClose={() => setShowScheduleModal(false)}
         onSchedule={(scheduleData) => {
           console.log('Schedule data:', scheduleData);
-          showToast('Report scheduled successfully!');
           setShowScheduleModal(false);
         }}
       />
@@ -1256,7 +1249,6 @@ export default function Dashboard() {
         onClose={() => setShowAlertModal(false)}
         onSave={(alertSettings) => {
           console.log('Alert settings:', alertSettings);
-          showToast('Alert settings saved successfully!');
           setShowAlertModal(false);
         }}
       />

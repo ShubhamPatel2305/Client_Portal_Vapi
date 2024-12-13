@@ -24,7 +24,6 @@ import * as XLSX from 'xlsx';
 
 import { fetchAnalyticsData } from '../lib/api';
 import { Analytics } from '../lib/api/vapiService';
-import { showToast } from '../components/Toast';
 import PerformanceReport from '../components/reports/PerformanceReport';
 import CallAnalyticsReport from '../components/reports/CallAnalyticsReport';
 import UserEngagementReport from '../components/reports/UserEngagementReport';
@@ -47,6 +46,7 @@ export default function Reports() {
     from: startOfDay(subDays(new Date(), 30)),
     to: endOfDay(new Date()),
   });
+
   const [data, setData] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,10 +57,8 @@ export default function Reports() {
       setLoading(true);
       const result = await fetchAnalyticsData(dateRange.from, dateRange.to);
       setData(result);
-      showToast('Report data updated');
     } catch (error) {
       console.error('Error fetching report data:', error);
-      showToast('Failed to fetch report data', 'error');
     } finally {
       setLoading(false);
     }
@@ -80,6 +78,7 @@ export default function Reports() {
     doc.text(title, 20, 20);
     
     doc.setFontSize(12);
+
     doc.text(`Period: ${format(dateRange.from!, 'PP')} - ${format(dateRange.to!, 'PP')}`, 20, 30);
 
     const metrics = [
@@ -96,7 +95,6 @@ export default function Reports() {
     });
 
     doc.save(`${selectedReport}-report.pdf`);
-    showToast('Report exported as PDF');
   };
 
   const exportExcel = () => {
@@ -114,7 +112,6 @@ export default function Reports() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Report');
     XLSX.writeFile(wb, `${selectedReport}-report.xlsx`);
-    showToast('Report exported as Excel');
   };
 
   const renderReport = () => {

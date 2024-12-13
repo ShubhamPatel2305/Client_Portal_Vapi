@@ -72,7 +72,7 @@ const generateMockAnalytics = (): Analytics => {
   const monthlyCallData = months.map((month, index) => {
     const growth = 1 + (monthlyGrowth / 100) * index;
     const calls = Math.floor(baseCallVolume * growth);
-    const avgCostPerCall = faker.number.float({ min: 8, max: 12, precision: 0.01 });
+    const avgCostPerCall = faker.number.float({ min: 8, max: 12, multipleOf: 0.01 });
     return {
       date: `${month} 2024`,
       totalCalls: calls,

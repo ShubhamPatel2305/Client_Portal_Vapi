@@ -7,6 +7,7 @@ import { produce } from 'immer';
 import { set } from 'lodash';
 import ModelConfig from '../components/vapi/ModelConfig';
 import VoiceConfig from '../components/vapi/VoiceConfig';
+import { AdvancedSettings } from '../components/vapi/AdvancedSettings';
 import TranscriberConfig from '../components/vapi/TranscriberConfig';
 import FunctionConfig from '../components/vapi/FunctionConfig';
 import MetricsDisplay from '../components/vapi/MetricsDisplay';
@@ -194,7 +195,8 @@ export default function Vapi() {
     { id: 'model', icon: <MessageSquare />, label: 'Model' },
     { id: 'transcriber', icon: <Settings2 />, label: 'Transcriber' },
     { id: 'voice', icon: <Mic />, label: 'Voice' },
-    { id: 'functions', icon: <PlayCircle />, label: 'Functions' }
+    { id: 'functions', icon: <PlayCircle />, label: 'Functions' },
+    { id: 'advanced', icon: <Settings2 />, label: 'Advanced Settings' }
   ];
 
   return (
@@ -263,6 +265,9 @@ export default function Vapi() {
             </Tab.Panel>
             <Tab.Panel>
               <FunctionConfig config={config} onConfigChange={handleConfigChange} />
+            </Tab.Panel>
+            <Tab.Panel>
+              <AdvancedSettings config={config} onConfigChange={handleConfigChange} />
             </Tab.Panel>
           </Tab.Panels>
         </Tab.Group>
