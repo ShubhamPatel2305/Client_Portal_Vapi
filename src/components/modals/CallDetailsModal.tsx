@@ -1,9 +1,9 @@
 import { Dialog } from '@tremor/react';
-import { Phone, Clock, DollarSign, X } from 'lucide-react';
-import { Badge } from '@tremor/react';
+import { Phone, Clock, DollarSign, X, Volume2, VolumeX } from 'lucide-react';
+import { Badge, Button } from '@tremor/react';
 import { format } from 'date-fns';
 import { VapiCall } from '../../services/vapiService';
-import { Button } from '@tremor/react';
+import { useState, useRef, useEffect } from 'react';
 
 interface CallDetailsModalProps {
   call: VapiCall;
@@ -12,6 +12,11 @@ interface CallDetailsModalProps {
 }
 
 export default function CallDetailsModal({ call, isOpen, onClose }: CallDetailsModalProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
   const formatDuration = (startTime: string, endTime: string) => {
     const duration = Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 1000);
     const minutes = Math.floor(duration / 60);
@@ -19,7 +24,66 @@ export default function CallDetailsModal({ call, isOpen, onClose }: CallDetailsM
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handlePlayPause = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = Number(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
+  useEffect(() => {
+    // Reset state when modal is closed
+    if (!isOpen) {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Load recording URL when available
+    if (call.artifact?.recordingUrl && audioRef.current) {
+      audioRef.current.src = call.artifact.recordingUrl;
+      audioRef.current.load();
+    }
+  }, [call.artifact?.recordingUrl]);
+
   if (!isOpen) return null;
+
+  const hasRecording = Boolean(call.artifact?.recordingUrl);
 
   return (
     <Dialog
@@ -78,6 +142,49 @@ export default function CallDetailsModal({ call, isOpen, onClose }: CallDetailsM
             </div>
           </div>
 
+          {/* Recording */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-500">Call Recording</h3>
+            {hasRecording ? (
+              <div className="bg-gray-50 rounded-lg p-4">
+                <audio
+                  ref={audioRef}
+                  onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onEnded={() => setIsPlaying(false)}
+                  className="hidden"
+                />
+                <div className="flex flex-col space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="light"
+                      icon={isPlaying ? VolumeX : Volume2}
+                      onClick={handlePlayPause}
+                      className="!p-2"
+                    >
+                      {isPlaying ? 'Pause' : 'Play'}
+                    </Button>
+                    <div className="text-sm text-gray-500">
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </div>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={duration}
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-500 text-center">
+                No recording available for this call
+              </div>
+            )}
+          </div>
+
           {/* Summary */}
           {call.analysis?.summary && (
             <div className="space-y-2">
@@ -119,17 +226,6 @@ export default function CallDetailsModal({ call, isOpen, onClose }: CallDetailsM
               <span className="text-sm text-gray-700">{call.endedReason || 'N/A'}</span>
             </div>
           </div>
-
-          {/* Recording */}
-          {call.artifact?.recordingUrl && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-500">Recording</h3>
-              <audio controls className="w-full">
-                <source src={call.artifact.recordingUrl} type="audio/mpeg" />
-                Your browser does not support the audio element.
-              </audio>
-            </div>
-          )}
         </div>
       </div>
     </Dialog>

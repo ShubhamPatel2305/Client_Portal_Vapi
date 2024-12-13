@@ -951,8 +951,8 @@ export default function Dashboard() {
             </motion.div>
           </TabPanel>
 
-          {/* Calls Panel */}
-          <TabPanel>
+         {/* Calls Panel */}
+         <TabPanel>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1094,11 +1094,6 @@ export default function Dashboard() {
                           {paginatedCalls.map((call) => (
                             <TableRow 
                               key={call.id}
-                              className="cursor-pointer hover:bg-gray-50 transition-colors"
-                              onClick={() => {
-                                setSelectedCall(call);
-                                setShowCallModal(true);
-                              }}
                             >
                               <TableCell>
                                 <div className="flex items-center gap-2">
@@ -1148,8 +1143,7 @@ export default function Dashboard() {
                                 <Button
                                   size="xs"
                                   variant="secondary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
+                                  onClick={() => {
                                     setSelectedCall(call);
                                     setShowCallModal(true);
                                   }}
@@ -1162,8 +1156,8 @@ export default function Dashboard() {
                         </TableBody>
                       </Table>
 
-                      {/* Pagination */}
-                      {totalPages > 1 && (
+                       {/* Pagination */}
+                       {totalPages > 1 && (
                         <div className="flex justify-between items-center mt-6 px-2">
                           <div className="text-sm text-gray-500">
                             Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredCalls.length)} of {filteredCalls.length} calls
@@ -1252,14 +1246,16 @@ export default function Dashboard() {
           setShowAlertModal(false);
         }}
       />
-      <CallDetailsModal
-        call={selectedCall!}
-        isOpen={showCallModal && selectedCall !== null}
-        onClose={() => {
-          setShowCallModal(false);
-          setSelectedCall(null);
-        }}
-      />
+      {selectedCall && (
+        <CallDetailsModal
+          call={selectedCall}
+          isOpen={showCallModal}
+          onClose={() => {
+            setShowCallModal(false);
+            setSelectedCall(null);
+          }}
+        />
+      )}
     </motion.div>
   );
 }
