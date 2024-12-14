@@ -1,4 +1,6 @@
 import { BillingPlan, billingPlans } from '../services/billingService';
+import { generateAnalyticsReport, generateInvoice } from '../../utils/pdfGenerators';
+import { format } from 'date-fns';
 
 export const billingApi = {
   getCurrentPlan: async (): Promise<BillingPlan> => {
@@ -31,11 +33,80 @@ export const billingApi = {
     }));
   },
 
-  changePlan: async (planId: string) => {
+  changePlan: async (planId: string): Promise<BillingPlan> => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
-    const plan = billingPlans.find(p => p.id === planId);
+    const plan = billingPlans.find((p: BillingPlan) => p.id === planId);
     if (!plan) throw new Error('Invalid plan ID');
     return plan;
+  },
+
+  downloadReport: async (month: number): Promise<Blob> => {
+    // Generate mock data for the report
+    const mockData = {
+      totalCalls: 653,
+      inboundCalls: 717,
+      outboundCalls: 516,
+      avgDuration: 6,
+      totalCost: 245.67,
+      successRate: 99.2,
+      dailyStats: Array.from({ length: 28 }, (_, i) => ({
+        date: format(new Date(2024, month, i + 1), 'yyyy-MM-dd'),
+        totalCalls: Math.floor(Math.random() * 100) + 50
+      })),
+      callDetails: Array.from({ length: 13 }, (_, i) => ({
+        id: `CALL-${i + 1}`,
+        date: format(new Date(2024, month, Math.floor(Math.random() * 28) + 1), 'yyyy-MM-dd HH:mm:ss'),
+        type: Math.random() > 0.5 ? 'Inbound' : 'Outbound',
+        duration: Math.floor(Math.random() * 600) + 60,
+        cost: Number((Math.random() * 10).toFixed(2)),
+        status: Math.random() > 0.1 ? 'Completed' : 'Failed'
+      }))
+    };
+
+    const doc = generateAnalyticsReport(mockData);
+    return doc.output('blob');
+  },
+
+  downloadInvoice: async (month: number): Promise<Blob> => {
+    // Generate mock data for the invoice
+    const mockData = {
+      invoiceNumber: `INV-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
+      client: {
+        name: 'Acme Corporation',
+        address: '123 Business Avenue',
+        city: 'San Francisco, CA 94105',
+        email: 'billing@acme.com'
+      },
+      date: format(new Date(2024, month, 1), 'yyyy-MM-dd'),
+      dueDate: format(new Date(2024, month + 1, 1), 'yyyy-MM-dd'),
+      billingPeriod: format(new Date(2024, month, 1), 'MMMM yyyy'),
+      services: [
+        {
+          name: 'Voice API Calls',
+          quantity: 653,
+          rate: 0.25,
+          amount: 163.25
+        },
+        {
+          name: 'SMS Messages',
+          quantity: 245,
+          rate: 0.15,
+          amount: 36.75
+        },
+        {
+          name: 'Premium Support',
+          quantity: 1,
+          rate: 45.00,
+          amount: 45.00
+        }
+      ],
+      subtotal: 245.00,
+      tax: 24.50,
+      total: 269.50
+    };
+
+    const doc = generateInvoice(mockData);
+    return doc.output('blob');
   }
 };
