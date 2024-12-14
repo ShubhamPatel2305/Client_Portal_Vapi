@@ -5,67 +5,46 @@ import { Mic, Info, Clock, Zap, Video, MessageSquare, Timer } from 'lucide-react
 
 interface AdvancedSettingsProps {
   config: {
-    privacy?: {
-      hipaa?: boolean;
-      audioRecording?: boolean;
-      videoRecording?: boolean;
-    };
-    startSpeaking?: {
-      waitSeconds?: number;
-      smartEndpointing?: boolean;
-      onPunctuationSeconds?: number;
-      onNoPunctuationSeconds?: number;
-      onNumberSeconds?: number;
-    };
-    messages?: {
-      voicemail?: string;
-      endCall?: string;
-    };
-    timeout?: {
-      silence?: number;
-      maxDuration?: number;
-    };
+    hipaaEnabled: boolean;
+    voicemailMessage: string;
+    endCallMessage: string;
+    recordingEnabled: boolean;
+    videoRecordingEnabled: boolean;
+    silenceTimeoutSeconds: number;
+    maxDurationSeconds: number;
+    waitSeconds: number;
+    smartEndpointingEnabled: boolean;
   };
   onConfigChange: (key: string, value: any) => void;
 }
 
 const defaultConfig = {
-  privacy: {
-    hipaa: false,
-    audioRecording: false,
-    videoRecording: false,
-  },
-  startSpeaking: {
-    waitSeconds: 0,
-    smartEndpointing: false,
-    onPunctuationSeconds: 0,
-    onNoPunctuationSeconds: 0,
-    onNumberSeconds: 0,
-  },
-  messages: {
-    voicemail: "Hey, can you please call back? Thanks!",
-    endCall: "Goodbye.",
-  },
-  timeout: {
-    silence: 30,
-    maxDuration: 1800,
-  },
+  hipaaEnabled: true,
+  voicemailMessage: "Please drop a message",
+  endCallMessage: "Thank you for contacting.",
+  recordingEnabled: false,
+  videoRecordingEnabled: false,
+  silenceTimeoutSeconds: 30,
+  maxDurationSeconds: 600,
+  waitSeconds: 60,
+  smartEndpointingEnabled: true
 };
 
 type TimeSettingKey = 'onPunctuationSeconds' | 'onNoPunctuationSeconds' | 'onNumberSeconds';
 
 export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigChange }) => {
   // Merge with defaults
+  console.log(config, 'config');
   const advancedConfig = {
     ...defaultConfig,
     ...config,
     messages: {
-      voicemail: config.messages?.voicemail || "Hey, can you please call back? Thanks!",
-      endCall: config.messages?.endCall || "Goodbye.",
+      voicemail: config.voicemailMessage || "Hey, can you please call back? Thanks!",
+      endCall: config.endCallMessage || "Goodbye.",
     },
     timeout: {
-      silence: config.timeout?.silence || 30,
-      maxDuration: config.timeout?.maxDuration || 1800,
+      silence: config.silenceTimeoutSeconds || 30,
+      maxDuration: config.maxDurationSeconds || 1800,
     },
   };
 
@@ -207,9 +186,9 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
               </div>
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onConfigChange('privacy.hipaa', !advancedConfig.privacy?.hipaa)}
+                onClick={() => onConfigChange('privacy.hipaa', !advancedConfig.hipaaEnabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  advancedConfig.privacy?.hipaa ? 'bg-red-500 focus:ring-red-500' : 'bg-gray-200 focus:ring-gray-500'
+                  advancedConfig.hipaaEnabled ? 'bg-red-500 focus:ring-red-500' : 'bg-gray-200 focus:ring-gray-500'
                 }`}
               >
                 <motion.span
@@ -220,7 +199,7 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                     damping: 30
                   }}
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
-                    advancedConfig.privacy?.hipaa ? 'translate-x-6' : 'translate-x-1'
+                    advancedConfig.hipaaEnabled ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </motion.button>
@@ -238,9 +217,9 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
               </div>
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onConfigChange('privacy.audioRecording', !advancedConfig.privacy?.audioRecording)}
+                onClick={() => onConfigChange('privacy.audioRecording', !advancedConfig.recordingEnabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  advancedConfig.privacy?.audioRecording ? 'bg-blue-500 focus:ring-blue-500' : 'bg-gray-200 focus:ring-gray-500'
+                  advancedConfig.recordingEnabled ? 'bg-blue-500 focus:ring-blue-500' : 'bg-gray-200 focus:ring-gray-500'
                 }`}
               >
                 <motion.span
@@ -251,7 +230,7 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                     damping: 30
                   }}
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
-                    advancedConfig.privacy?.audioRecording ? 'translate-x-6' : 'translate-x-1'
+                    advancedConfig.recordingEnabled ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </motion.button>
@@ -277,9 +256,9 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
               </div>
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onConfigChange('privacy.videoRecording', !advancedConfig.privacy?.videoRecording)}
+                onClick={() => onConfigChange('privacy.videoRecording', !advancedConfig.videoRecordingEnabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  advancedConfig.privacy?.videoRecording ? 'bg-purple-500 focus:ring-purple-500' : 'bg-gray-200 focus:ring-gray-500'
+                  advancedConfig.videoRecordingEnabled ? 'bg-purple-500 focus:ring-purple-500' : 'bg-gray-200 focus:ring-gray-500'
                 }`}
               >
                 <motion.span
@@ -290,7 +269,7 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                     damping: 30
                   }}
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
-                    advancedConfig.privacy?.videoRecording ? 'translate-x-6' : 'translate-x-1'
+                    advancedConfig.videoRecordingEnabled ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </motion.button>
@@ -323,13 +302,13 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                 min="0"
                 max="2"
                 step="0.1"
-                value={advancedConfig.startSpeaking?.waitSeconds || 0}
+                value={advancedConfig.waitSeconds || 0}
                 onChange={(e) => onConfigChange('startSpeaking.waitSeconds', parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-500"
               />
               <div className="flex justify-between text-xs text-gray-600">
                 <span>0 sec</span>
-                <span>{advancedConfig.startSpeaking?.waitSeconds || 0} sec</span>
+                <span>{advancedConfig.waitSeconds || 0} sec</span>
                 <span>2 sec</span>
               </div>
             </div>
@@ -347,9 +326,9 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
               </div>
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => onConfigChange('startSpeaking.smartEndpointing', !advancedConfig.startSpeaking?.smartEndpointing)}
+                onClick={() => onConfigChange('startSpeaking.smartEndpointing', !advancedConfig.smartEndpointingEnabled)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  advancedConfig.startSpeaking?.smartEndpointing ? 'bg-indigo-500 focus:ring-indigo-500' : 'bg-gray-200 focus:ring-gray-500'
+                  advancedConfig.smartEndpointingEnabled ? 'bg-indigo-500 focus:ring-indigo-500' : 'bg-gray-200 focus:ring-gray-500'
                 }`}
               >
                 <motion.span
@@ -360,48 +339,13 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                     damping: 30
                   }}
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
-                    advancedConfig.startSpeaking?.smartEndpointing ? 'translate-x-6' : 'translate-x-1'
+                    advancedConfig.smartEndpointingEnabled ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </motion.button>
             </div>
 
-            {/* Time Settings */}
-            {['punctuation', 'noPunctuation', 'number'].map((type) => {
-              const key = `on${type.charAt(0).toUpperCase() + type.slice(1)}Seconds` as TimeSettingKey;
-              return (
-                <div key={type} className="p-4 bg-gray-50 rounded-xl space-y-3 hover:shadow-md transition-all duration-200">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-cyan-50 rounded-lg">
-                      <Clock className="h-4 w-4 text-cyan-600" />
-                    </div>
-                    <label className="text-sm font-medium text-gray-900">
-                      On {type.charAt(0).toUpperCase() + type.slice(1)} Seconds
-                    </label>
-                    <div className="group relative">
-                      <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                      <div className="absolute left-0 w-64 p-2 mt-2 text-xs text-gray-600 bg-white border border-gray-100 rounded-lg shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10">
-                        Minimum seconds to wait after transcription ending with {type}
-                      </div>
-                    </div>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="3"
-                    step="0.1"
-                    value={advancedConfig.startSpeaking?.[key] || 0}
-                    onChange={(e) => onConfigChange(`startSpeaking.${key}`, parseFloat(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                  />
-                  <div className="flex justify-between text-xs text-gray-600">
-                    <span>0 sec</span>
-                    <span>{advancedConfig.startSpeaking?.[key] || 0} sec</span>
-                    <span>3 sec</span>
-                  </div>
-                </div>
-              );
-            })}
+            
           </div>
         </div>
       </Card>

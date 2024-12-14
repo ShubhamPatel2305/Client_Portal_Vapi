@@ -7,11 +7,11 @@ import { produce } from 'immer';
 import { set } from 'lodash';
 import ModelConfig from '../components/vapi/ModelConfig';
 import VoiceConfig from '../components/vapi/VoiceConfig';
-import { AdvancedSettings } from '../components/vapi/AdvancedSettings';
 import TranscriberConfig from '../components/vapi/TranscriberConfig';
 import FunctionConfig from '../components/vapi/FunctionConfig';
 import MetricsDisplay from '../components/vapi/MetricsDisplay';
 import vapiService from '../services/vapiService';
+import { AdvancedSettings } from '../components/vapi/AdvancedSettings';
 
 interface AssistantConfig {
   model: {
@@ -36,6 +36,33 @@ interface AssistantConfig {
   functions: {
     enabled: boolean;
     list: string[];
+  };
+  dialKeypadFunctionEnabled: boolean;
+  endCallFunctionEnabled: boolean;
+  forwardingPhoneNumber: string;
+  hipaaEnabled: boolean;
+  voicemailMessage: string;
+  endCallMessage: string;
+  recordingEnabled: boolean;
+  videoRecordingEnabled: boolean;
+  silenceTimeoutSeconds: number;
+  maxDurationSeconds: number;
+  waitSeconds: number;
+  smartEndpointingEnabled: boolean;
+  privacy?: {
+    hipaa?: boolean;
+    audioRecording?: boolean;
+    videoRecording?: boolean;
+  };
+  startSpeaking?: {
+    waitSeconds?: number;
+    smartEndpointing?: boolean;
+    onPunctuationSeconds?: number;
+    onNoPunctuationSeconds?: number;
+    onNumberSeconds?: number;
+  };
+  messages?: {
+    voicemail?: string;
   };
 }
 
@@ -68,7 +95,19 @@ export default function Vapi() {
     functions: {
       enabled: false,
       list: []
-    }
+    },
+    dialKeypadFunctionEnabled: false,
+    endCallFunctionEnabled: false,
+    forwardingPhoneNumber: '',
+    hipaaEnabled: true,
+  voicemailMessage: "Please drop a message",
+  endCallMessage: "Thank you for contacting.",
+  recordingEnabled: false,
+  videoRecordingEnabled: false,
+  silenceTimeoutSeconds: 30,
+  maxDurationSeconds: 600,
+  waitSeconds: 60,
+  smartEndpointingEnabled: true
   });
 
   const [metrics, setMetrics] = useState<MetricsState>({
@@ -110,7 +149,19 @@ export default function Vapi() {
           voice: assistantData.voice?.voiceId || prevConfig.voice.voice,
           speed: prevConfig.voice.speed // Keep existing if not in API
         },
-        functions: prevConfig.functions // Keep existing if not in API
+        functions: prevConfig.functions,
+        dialKeypadFunctionEnabled: assistantData.dialKeypadFunctionEnabled,
+        endCallFunctionEnabled: assistantData.endCallFunctionEnabled,
+        forwardingPhoneNumber: assistantData.forwardingPhoneNumber,
+        hipaaEnabled: assistantData.hipaaEnabled,
+        voicemailMessage: assistantData.messages?.voicemail || prevConfig.voicemailMessage,
+        endCallMessage: assistantData.messages?.endCall || prevConfig.endCallMessage,
+        recordingEnabled: assistantData.recordingEnabled,
+        videoRecordingEnabled: assistantData.videoRecordingEnabled,
+        silenceTimeoutSeconds: assistantData.silenceTimeoutSeconds,
+        maxDurationSeconds: assistantData.maxDurationSeconds,
+        waitSeconds: assistantData.waitSeconds,
+        smartEndpointingEnabled: assistantData.smartEndpointingEnabled
       }));
 
       // Get real-time metrics
@@ -196,7 +247,7 @@ export default function Vapi() {
     { id: 'transcriber', icon: <Settings2 />, label: 'Transcriber' },
     { id: 'voice', icon: <Mic />, label: 'Voice' },
     { id: 'functions', icon: <PlayCircle />, label: 'Functions' },
-    { id: 'advanced', icon: <Settings2 />, label: 'Advanced Settings' }
+    { id: 'advanced', icon: <Settings2 />, label: 'Advanced' },
   ];
 
   return (
@@ -261,7 +312,7 @@ export default function Vapi() {
               <TranscriberConfig config={config} onConfigChange={handleConfigChange} />
             </Tab.Panel>
             <Tab.Panel>
-              <VoiceConfig config={config} onConfigChange={handleConfigChange} />
+              <VoiceConfig />
             </Tab.Panel>
             <Tab.Panel>
               <FunctionConfig config={config} onConfigChange={handleConfigChange} />

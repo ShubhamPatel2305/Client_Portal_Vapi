@@ -1,11 +1,12 @@
-import { Card, Title, Switch } from '@tremor/react';
+import { Card, Switch } from '@tremor/react';
 import { motion } from 'framer-motion';
 import { PhoneCall, KeyRound, Phone, Settings, Info } from 'lucide-react';
-import React from 'react';
+import React, { useMemo } from 'react';
+import { AssistantConfig } from '../../pages/Vapi';
 
 interface FunctionConfigProps {
-  config: any;
-  onConfigChange: (key: string, value: any) => void;
+  config: AssistantConfig;
+  onConfigChange: (key: string, value: any, options?: { skipMetricsUpdate: boolean; }) => void;
 }
 
 const countryOptions = [
@@ -15,7 +16,19 @@ const countryOptions = [
   { value: 'in', label: '🇮🇳 India', code: '+91' }
 ];
 
-export const FunctionConfig: React.FC<FunctionConfigProps> = ({ config, onConfigChange }) => {
+const FunctionConfig = React.memo<FunctionConfigProps>(({ config, onConfigChange }) => {
+  // Use useMemo to prevent unnecessary re-renders
+  const memoizedConfig = useMemo(() => config, [config]);
+
+  // Prevent double rendering and log only when config changes
+  React.useEffect(() => {
+    if (memoizedConfig) {
+    }
+  }, [memoizedConfig]);
+
+  // Return null only if config is completely undefined or null
+  if (!memoizedConfig) return null;
+
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -32,6 +45,30 @@ export const FunctionConfig: React.FC<FunctionConfigProps> = ({ config, onConfig
     hidden: { opacity: 0, x: -20 },
     visible: { opacity: 1, x: 0 }
   };
+
+  // Derive country code from forwarding phone number
+  const getCountryCode = (phoneNumber: string) => {
+    if (!phoneNumber) return 'in';
+    for (const option of countryOptions) {
+      if (phoneNumber.startsWith(option.code)) {
+        return option.value;
+      }
+    }
+    return 'in'; // default to India
+  };
+
+  // Get the phone number without country code
+  const formatPhoneNumber = (phoneNumber: string) => {
+    if (!phoneNumber) return '';
+    const countryCode = countryOptions.find(opt => phoneNumber.startsWith(opt.code))?.code;
+    if (countryCode) {
+      return phoneNumber.substring(countryCode.length);
+    }
+    return phoneNumber;
+  };
+
+  const selectedCountry = getCountryCode(memoizedConfig.forwardingPhoneNumber);
+  const phoneNumberWithoutCode = formatPhoneNumber(memoizedConfig.forwardingPhoneNumber);
 
   return (
     <motion.div
@@ -66,15 +103,15 @@ export const FunctionConfig: React.FC<FunctionConfigProps> = ({ config, onConfig
                   </div>
                 </div>
                 <Switch
-                  checked={config.endCallEnabled || false}
-                  onChange={(value) => onConfigChange('endCallEnabled', value)}
+                  checked={memoizedConfig.endCallFunctionEnabled || false}
+                  onChange={(value) => onConfigChange('endCallFunctionEnabled', value)}
                   className={`${
-                    config.endCallEnabled ? 'bg-indigo-600' : 'bg-gray-200'
+                    memoizedConfig.endCallFunctionEnabled ? 'bg-indigo-600' : 'bg-gray-200'
                   } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2`}
                 >
                   <span
                     className={`${
-                      config.endCallEnabled ? 'translate-x-6' : 'translate-x-1'
+                      memoizedConfig.endCallFunctionEnabled ? 'translate-x-6' : 'translate-x-1'
                     } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
                   />
                 </Switch>
@@ -97,15 +134,15 @@ export const FunctionConfig: React.FC<FunctionConfigProps> = ({ config, onConfig
                   </div>
                 </div>
                 <Switch
-                  checked={config.keypadEnabled || false}
-                  onChange={(value) => onConfigChange('keypadEnabled', value)}
+                  checked={memoizedConfig.dialKeypadFunctionEnabled || false}
+                  onChange={(value) => onConfigChange('dialKeypadFunctionEnabled', value)}
                   className={`${
-                    config.keypadEnabled ? 'bg-indigo-600' : 'bg-gray-200'
+                    memoizedConfig.dialKeypadFunctionEnabled ? 'bg-indigo-600' : 'bg-gray-200'
                   } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2`}
                 >
                   <span
                     className={`${
-                      config.keypadEnabled ? 'translate-x-6' : 'translate-x-1'
+                      memoizedConfig.dialKeypadFunctionEnabled ? 'translate-x-6' : 'translate-x-1'
                     } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
                   />
                 </Switch>
@@ -130,6 +167,14 @@ export const FunctionConfig: React.FC<FunctionConfigProps> = ({ config, onConfig
                 <div className="flex space-x-3">
                   <div className="relative w-32">
                     <select 
+                      value={selectedCountry}
+                      onChange={(e) => {
+                        const selectedOption = countryOptions.find(opt => opt.value === e.target.value);
+                        if (selectedOption) {
+                          const newPhoneNumber = `${selectedOption.code}${phoneNumberWithoutCode}`;
+                          onConfigChange('forwardingPhoneNumber', newPhoneNumber);
+                        }
+                      }}
                       className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 appearance-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                     >
                       {countryOptions.map(option => (
@@ -146,8 +191,14 @@ export const FunctionConfig: React.FC<FunctionConfigProps> = ({ config, onConfig
                     type="tel"
                     placeholder="Enter phone number"
                     className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-                    value={config.forwardingNumber || ''}
-                    onChange={(e) => onConfigChange('forwardingNumber', e.target.value)}
+                    value={phoneNumberWithoutCode}
+                    onChange={(e) => {
+                      const selectedOption = countryOptions.find(opt => opt.value === selectedCountry);
+                      if (selectedOption) {
+                        const newPhoneNumber = `${selectedOption.code}${e.target.value}`;
+                        onConfigChange('forwardingPhoneNumber', newPhoneNumber);
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -157,6 +208,6 @@ export const FunctionConfig: React.FC<FunctionConfigProps> = ({ config, onConfig
       </Card>
     </motion.div>
   );
-};
+});
 
 export default FunctionConfig;

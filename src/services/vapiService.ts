@@ -99,6 +99,9 @@ interface Assistant {
   silenceTimeoutSeconds: number;
   maxDurationSeconds: number;
   backgroundSound: string;
+  dialKeypadFunctionEnabled: boolean;
+  endCallFunctionEnabled: boolean;
+  forwardingPhoneNumber?: string;
   backgroundDenoisingEnabled: boolean;
   modelOutputInMessagesEnabled: boolean;
   transportConfigurations: Array<{
@@ -339,7 +342,6 @@ export const vapiService = {
   getAssistant: async (assistantId: string) => {
     try {
       const response = await client.assistants.get(assistantId);
-      console.log(response);
       return response;
     } catch (error) {
       console.error('Error fetching assistant details:', error);
