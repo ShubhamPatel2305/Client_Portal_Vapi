@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '@tremor/react';
-import { motion } from 'framer-motion';
-import { Volume2, Mic, Settings2, Info, MessageSquare, ToggleLeft, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Volume2, Mic, Settings2, Info, MessageSquare, ToggleLeft, ChevronDown, Wand2 } from 'lucide-react';
 import axios from 'axios';
 
 interface VapiResponse {
@@ -22,9 +22,9 @@ interface VapiResponse {
 }
 
 const providers = [
-  { value: '11labs', label: 'ElevenLabs', description: 'Emotional and natural voices' },
-  { value: 'openai', label: 'OpenAI', description: 'Advanced AI voices' },
-  { value: 'deepgram', label: 'Deepgram', description: 'High-quality speech recognition' }
+  { value: '11labs', label: 'ElevenLabs', description: 'Emotional and natural voices', icon: '🎭' },
+  { value: 'openai', label: 'OpenAI', description: 'Advanced AI voices', icon: '🤖' },
+  { value: 'deepgram', label: 'Deepgram', description: 'High-quality speech recognition', icon: '🎙️' }
 ];
 
 const voices = {
@@ -46,7 +46,9 @@ const voices = {
 };
 
 const backgroundSounds = [
-  'Office', 'Cafe', 'Street', 'Nature', 'None'
+  { id: 'office', label: 'Office', icon: '🏢' },
+  { id: 'default', label: 'Default', icon: '🎵' },
+  { id: 'off', label: 'Off', icon: '🔇' }
 ];
 
 const containerVariants = {
@@ -55,14 +57,34 @@ const containerVariants = {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.5
+      duration: 0.5,
+      staggerChildren: 0.1
     }
   }
 };
 
+const itemVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: { opacity: 1, x: 0 }
+};
+
 const VoiceConfig: React.FC = () => {
-  const [vapiData, setVapiData] = useState<VapiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [vapiData, setVapiData] = useState<VapiResponse>({
+    id: '',
+    voice: {
+      model: '',
+      style: 0,
+      voiceId: '',
+      provider: '11labs',
+      stability: 0.5,
+      similarityBoost: 0.5,
+      inputMinCharacters: 0,
+      fillerInjectionEnabled: false,
+      optimizeStreamingLatency: 0,
+    },
+    backgroundSound: 'default',
+    backchannelingEnabled: false,
+  });
   const [error, setError] = useState<string | null>(null);
 
   const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
@@ -78,10 +100,9 @@ const VoiceConfig: React.FC = () => {
           },
         });
         setVapiData(response.data);
+        setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      } finally {
-        setLoading(false);
+        console.error('Error fetching data:', err);
       }
     };
 
@@ -89,235 +110,229 @@ const VoiceConfig: React.FC = () => {
   }, []);
 
   const handleConfigChange = async (key: string, value: any) => {
+    // Optimistically update the UI
+    const updatedData = {
+      ...vapiData,
+      voice: { ...vapiData.voice },
+    };
+    
+    const keys = key.split('.');
+    let current: any = updatedData;
+    for (let i = 0; i < keys.length - 1; i++) {
+      current = current[keys[i]];
+    }
+    current[keys[keys.length - 1]] = value;
+    setVapiData(updatedData);
+
     try {
-      // Create a deep copy of the current data
-      const updatedData = JSON.parse(JSON.stringify(vapiData));
-      
-      // Update the nested property using the key path
-      const keys = key.split('.');
-      let current: any = updatedData;
-      for (let i = 0; i < keys.length - 1; i++) {
-        current = current[keys[i]];
-      }
-      current[keys[keys.length - 1]] = value;
-
-      // Update the state
-      setVapiData(updatedData);
-
-      // Send the update to the API
       await axios.patch(`https://api.vapi.ai/assistant/${assistantId}`, updatedData, {
         headers: {
           'Authorization': `Bearer ${VAPI_API_KEY}`,
           'Content-Type': 'application/json',
         },
       });
+      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update data');
+      console.error('Error updating configuration:', err);
+      // Don't revert the UI state, just show the error
+      setError('Changes may not have been saved. The interface will continue to work.');
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (!vapiData) return <div>No data available</div>;
-
   const isElevenLabs = vapiData.voice.provider === '11labs';
-
   const formatValue = (value: number, decimals: number = 1) => {
     return typeof value === 'number' ? value.toFixed(decimals) : '0';
   };
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-4"
-    >
-      <Card className="p-4 space-y-4">
-        <div className="flex items-center space-x-2">
-          <Volume2 className="w-5 h-5" />
-          <h2 className="text-lg font-semibold">Voice Settings</h2>
-        </div>
+    <AnimatePresence>
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-6"
+      >
+        <Card className="bg-white p-6 shadow-lg rounded-xl">
+          <motion.div className="space-y-6" layout>
+            {/* Header */}
+            <motion.div 
+              variants={itemVariants}
+              className="flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-50">
+                  <Volume2 className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Voice Settings</h2>
+                  <p className="text-sm text-gray-600">Configure your assistant's voice and speech parameters</p>
+                </div>
+              </div>
+            </motion.div>
 
-        {/* Provider Selection */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4 text-gray-600" />
-            <label className="text-sm font-medium text-gray-900">Provider</label>
-            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+            {/* Provider Selection */}
+            <motion.div variants={itemVariants} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-50">
+                  <Settings2 className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-900">Voice Provider</label>
+                  <p className="text-xs text-gray-600">Select your preferred AI voice provider</p>
+                </div>
+              </div>
+              <div className="relative">
+                <select
+                  value={vapiData.voice.provider}
+                  onChange={(e) => handleConfigChange('voice.provider', e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900 pr-10"
+                >
+                  {providers.map((provider) => (
+                    <option key={provider.value} value={provider.value} className="text-gray-900">
+                      {provider.icon} {provider.label} - {provider.description}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+              </div>
+            </motion.div>
+
+            {/* Voice Selection */}
+            <motion.div variants={itemVariants} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-teal-50">
+                  <Mic className="h-5 w-5 text-teal-600" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-900">Voice Selection</label>
+                  <p className="text-xs text-gray-600">Choose the voice for your assistant</p>
+                </div>
+              </div>
+              <div className="relative">
+                <select
+                  value={vapiData.voice.voiceId}
+                  onChange={(e) => handleConfigChange('voice.voiceId', e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900 pr-10"
+                >
+                  {(voices[vapiData.voice.provider as keyof typeof voices] || []).map((voice) => (
+                    <option key={voice.id} value={voice.id} className="text-gray-900">
+                      {voice.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+              </div>
+            </motion.div>
+
+            {/* Voice Parameters */}
+            {isElevenLabs && (
+              <motion.div variants={itemVariants} className="space-y-6">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-orange-50">
+                    <Wand2 className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">Voice Parameters</h3>
+                    <p className="text-xs text-gray-600">Fine-tune your voice settings</p>
+                  </div>
+                </div>
+
+                {/* Stability Slider */}
+                <motion.div className="space-y-2" whileHover={{ scale: 1.01 }}>
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-gray-700">Stability</label>
+                    <span className="text-sm text-gray-600">{formatValue(vapiData.voice.stability)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={vapiData.voice.stability}
+                    onChange={(e) => handleConfigChange('voice.stability', parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 hover:accent-orange-600"
+                  />
+                </motion.div>
+
+                {/* Similarity Boost Slider */}
+                <motion.div className="space-y-2" whileHover={{ scale: 1.01 }}>
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-gray-700">Similarity Boost</label>
+                    <span className="text-sm text-gray-600">{formatValue(vapiData.voice.similarityBoost)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={vapiData.voice.similarityBoost}
+                    onChange={(e) => handleConfigChange('voice.similarityBoost', parseFloat(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 hover:accent-orange-600"
+                  />
+                </motion.div>
+              </motion.div>
+            )}
+
+            {/* Background Sound */}
+            <motion.div variants={itemVariants} className="space-y-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <Volume2 className="h-4 w-4 text-indigo-500" />
+                <label className="text-sm font-medium text-gray-700">Background Sound</label>
+                <Info className="h-4 w-4 text-gray-400 cursor-help" />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {backgroundSounds.map((sound) => (
+                  <button
+                    key={sound.id}
+                    onClick={() => handleConfigChange('backgroundSound', sound.id)}
+                    className={`p-3 rounded-xl flex flex-col items-center justify-center space-y-1 transition-all duration-200 ${
+                      vapiData.backgroundSound === sound.id
+                        ? 'bg-indigo-100 text-indigo-600'
+                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="text-xl">{sound.icon}</span>
+                    <span className="text-sm font-medium">{sound.label}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Additional Settings */}
+            <motion.div variants={itemVariants} className="space-y-4">
+              <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                      <MessageSquare className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700">Enable Natural Conversation</h4>
+                      <p className="text-xs text-gray-500">Make the bot say words like 'mhmm', 'ya' etc. while listening to make the conversation sounds natural. Default disabled</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={vapiData.backchannelingEnabled}
+                      onChange={(e) => handleConfigChange('backchannelingEnabled', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        </Card>
+        {error && (
+          <div className="p-4 bg-red-50 rounded-xl text-red-600 flex items-center gap-2">
+            <Info className="w-5 h-5" />
+            <span>{error}</span>
           </div>
-          <select
-            value={vapiData.voice.provider}
-            onChange={(e) => handleConfigChange('voice.provider', e.target.value)}
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900"
-          >
-            {providers.map((provider) => (
-              <option key={provider.value} value={provider.value} className="text-gray-900">
-                {provider.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Voice Selection */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Mic className="h-4 w-4 text-gray-600" />
-            <label className="text-sm font-medium text-gray-900">Voice</label>
-            <Info className="h-4 w-4 text-gray-400 cursor-help" />
-          </div>
-          <select
-            value={vapiData.voice.voiceId}
-            onChange={(e) => handleConfigChange('voice.voiceId', e.target.value)}
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900"
-          >
-            {(voices[vapiData.voice.provider as keyof typeof voices] || []).map((voice) => (
-              <option key={voice.id} value={voice.id} className="text-gray-900">
-                {voice.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Only show these sliders for ElevenLabs provider */}
-        {isElevenLabs && (
-          <>
-            {/* Stability Slider */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <Settings2 className="w-4 h-4 mr-2" />
-                Stability
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={vapiData.voice.stability}
-                onChange={(e) => handleConfigChange('voice.stability', parseFloat(e.target.value))}
-                className="w-full"
-              />
-              <div className="text-xs text-gray-500 text-right">
-                {formatValue(vapiData.voice.stability)}
-              </div>
-            </div>
-
-            {/* Clarity + Similarity Slider */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <Settings2 className="w-4 h-4 mr-2" />
-                Clarity + Similarity
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={vapiData.voice.similarityBoost}
-                onChange={(e) => handleConfigChange('voice.similarityBoost', parseFloat(e.target.value))}
-                className="w-full"
-              />
-              <div className="text-xs text-gray-500 text-right">
-                {formatValue(vapiData.voice.similarityBoost)}
-              </div>
-            </div>
-
-            {/* Style Exaggeration Slider */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <Settings2 className="w-4 h-4 mr-2" />
-                Style Exaggeration
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={vapiData.voice.style}
-                onChange={(e) => handleConfigChange('voice.style', parseFloat(e.target.value))}
-                className="w-full"
-              />
-              <div className="text-xs text-gray-500 text-right">
-                {formatValue(vapiData.voice.style)}
-              </div>
-            </div>
-
-            {/* Optimize Streaming Latency Slider */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <Settings2 className="w-4 h-4 mr-2" />
-                Optimize Streaming Latency
-              </label>
-              <input
-                type="range"
-                min="1"
-                max="4"
-                step="1"
-                value={vapiData.voice.optimizeStreamingLatency}
-                onChange={(e) => handleConfigChange('voice.optimizeStreamingLatency', parseInt(e.target.value))}
-                className="w-full"
-              />
-              <div className="text-xs text-gray-500 text-right">
-                {vapiData.voice.optimizeStreamingLatency}
-              </div>
-            </div>
-          </>
         )}
-
-        {/* Filler Injection Toggle */}
-        <div className="flex items-center justify-between">
-          <label className="flex items-center text-sm font-medium text-gray-700">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Filler Injection
-          </label>
-          <div 
-            className={`cursor-pointer p-2 rounded ${vapiData.voice.fillerInjectionEnabled ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
-            onClick={() => handleConfigChange('voice.fillerInjectionEnabled', !vapiData.voice.fillerInjectionEnabled)}
-          >
-            <ToggleLeft className={`w-6 h-6 ${vapiData.voice.fillerInjectionEnabled ? 'transform rotate-180' : ''}`} />
-          </div>
-        </div>
-
-        {/* Backchanneling Toggle */}
-        <div className="flex items-center justify-between">
-          <label className="flex items-center text-sm font-medium text-gray-700">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Backchanneling
-          </label>
-          <div 
-            className={`cursor-pointer p-2 rounded ${vapiData.backchannelingEnabled ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}
-            onClick={() => handleConfigChange('backchannelingEnabled', !vapiData.backchannelingEnabled)}
-          >
-            <ToggleLeft className={`w-6 h-6 ${vapiData.backchannelingEnabled ? 'transform rotate-180' : ''}`} />
-          </div>
-        </div>
-
-        {/* Background Sound */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Volume2 className="h-4 w-4 text-gray-600" />
-            <label className="text-sm font-medium text-gray-900">Background Sound</label>
-            <Info className="h-4 w-4 text-gray-400 cursor-help" />
-          </div>
-          <select
-            value={vapiData.backgroundSound}
-            onChange={(e) => handleConfigChange('backgroundSound', e.target.value)}
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900"
-          >
-            {backgroundSounds.map((sound) => (
-              <option 
-                key={sound} 
-                value={sound.toLowerCase()} 
-                className="text-gray-900"
-              >
-                {sound}
-              </option>
-            ))}
-          </select>
-        </div>
-
-      </Card>
-    </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 
