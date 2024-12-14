@@ -4,24 +4,34 @@ import { CreditCard } from 'lucide-react';
 import { BillingStats } from '../components/billing/BillingStats';
 import { CallAnalytics } from '../components/billing/CallAnalytics';
 
-// Mock data generator
-const generateMonthlyData = (month: number) => ({
-  calls: {
-    total: Math.floor(Math.random() * 1000) + 500,
-    inbound: Math.floor(Math.random() * 600) + 300,
-    outbound: Math.floor(Math.random() * 400) + 200,
-    avgDuration: Math.floor(Math.random() * 300) + 120,
-    cost: (Math.random() * 1000 + 500).toFixed(2),
-    details: Array.from({ length: 20 }, (_, i) => ({
-      id: `CALL-${i + 1}`,
-      date: new Date(2023, month, Math.floor(Math.random() * 28) + 1),
-      duration: Math.floor(Math.random() * 600) + 60,
-      type: Math.random() > 0.5 ? 'Inbound' : 'Outbound',
-      cost: (Math.random() * 10).toFixed(2),
-      status: Math.random() > 0.1 ? 'Completed' : 'Failed'
-    }))
-  }
-});
+// Mock data generator with daily stats
+const generateMonthlyData = (month: number) => {
+  const daysInMonth = new Date(2024, month + 1, 0).getDate();
+  
+  return {
+    calls: {
+      total: Math.floor(Math.random() * 1000) + 500,
+      inbound: Math.floor(Math.random() * 600) + 300,
+      outbound: Math.floor(Math.random() * 400) + 200,
+      avgDuration: Math.floor(Math.random() * 300) + 120,
+      cost: (Math.random() * 1000 + 500).toFixed(2),
+      details: Array.from({ length: 20 }, (_, i) => ({
+        id: `CALL-${i + 1}`,
+        date: new Date(2024, month, Math.floor(Math.random() * 28) + 1),
+        duration: Math.floor(Math.random() * 600) + 60,
+        type: Math.random() > 0.5 ? 'Inbound' : 'Outbound',
+        cost: (Math.random() * 10).toFixed(2),
+        status: Math.random() > 0.1 ? 'Completed' : 'Failed'
+      })),
+      dailyStats: Array.from({ length: daysInMonth }, (_, i) => ({
+        date: new Date(2024, month, i + 1),
+        totalCalls: Math.floor(Math.random() * 50) + 20,
+        avgDuration: Math.floor(Math.random() * 10) + 2,
+        cost: (Math.random() * 100).toFixed(2)
+      }))
+    }
+  };
+};
 
 export default function Billing() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
