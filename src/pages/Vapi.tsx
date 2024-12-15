@@ -12,6 +12,9 @@ import FunctionConfig from '../components/vapi/FunctionConfig';
 import MetricsDisplay from '../components/vapi/MetricsDisplay';
 import vapiService from '../services/vapiService';
 import { AdvancedSettings } from '../components/vapi/AdvancedSettings';
+import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
+import { Loader2 } from 'lucide-react';
 
 interface AssistantConfig {
   model: {
@@ -118,6 +121,7 @@ export default function Vapi() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSendingToVapi, setIsSendingToVapi] = useState(false);
 
   const fetchAssistantData = useCallback(async () => {
     try {
@@ -126,6 +130,7 @@ export default function Vapi() {
       // Assuming you have an assistant ID, replace 'your-assistant-id' with the actual ID
       const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d'; // You might want to get this from props or environment
       const assistantData = await vapiService.getAssistant(assistantId);
+      console.log(assistantData);
       
       // Map the assistant data to your config structure
       setConfig(prevConfig => ({
@@ -134,7 +139,7 @@ export default function Vapi() {
           provider: assistantData.model?.provider || prevConfig.model.provider,
           name: assistantData.model?.model || prevConfig.model.name,
           firstMessage: assistantData.firstMessage || prevConfig.model.firstMessage,
-          systemPrompt: assistantData.model?.messages?.[0]?.content || prevConfig.model.systemPrompt,
+          systemPrompt: assistantData.model?.systemPrompt || prevConfig.model.systemPrompt,
           temperature: assistantData.model?.temperature ?? prevConfig.model.temperature,
           emotionRecognition: assistantData.model?.emotionRecognitionEnabled ?? prevConfig.model.emotionRecognition
         },
@@ -239,6 +244,126 @@ export default function Vapi() {
     if (!options?.skipMetricsUpdate) {
       const newMetrics = calculateMetrics(newConfig);
       setMetrics(newMetrics);
+    }
+  };
+
+  const handleSendToVapi = async () => {
+    // Start loading state
+    setIsSendingToVapi(true);
+  
+    try {
+      // Get the API key from environment variables
+      const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
+      
+      // Prepare the config object for the API
+      const apiConfig = {
+        model: {
+          provider: config.model.provider,
+          model: config.model.name,
+          systemPrompt: config.model.systemPrompt,
+          temperature: config.model.temperature,
+          emotionRecognitionEnabled: config.model.emotionRecognition
+        },
+        transcriber: {
+          provider: config.transcriber.provider,
+          language: config.transcriber.language,
+          model: config.transcriber.model
+        },
+        voice: {
+          provider: config.voice.provider,
+          voiceId: config.voice.voice
+        },
+        dialKeypadFunctionEnabled: config.dialKeypadFunctionEnabled,
+        endCallFunctionEnabled: config.endCallFunctionEnabled,
+        forwardingPhoneNumber: config.forwardingPhoneNumber,
+        hipaaEnabled: config.hipaaEnabled,
+        voicemailMessage: config.voicemailMessage,
+        endCallMessage: config.endCallMessage,
+        recordingEnabled: config.recordingEnabled,
+        silenceTimeoutSeconds: config.silenceTimeoutSeconds,
+        maxDurationSeconds: config.maxDurationSeconds,
+        firstMessage: config.model.firstMessage
+      };
+  
+      // Perform the API call
+      const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
+      const response = await axios.patch(
+        `https://api.vapi.ai/assistant/${assistantId}`, 
+        apiConfig,
+        {
+          headers: {
+            'Authorization': `Bearer ${VAPI_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+  
+      // Check for successful status
+      if (response.status === 200) {
+        // Success toast
+        toast.success('Assistant configuration updated successfully', {
+          duration: 4000,
+          position: 'top-right',
+          style: {
+            background: '#4CAF50',
+            color: 'white',
+            fontWeight: 'bold',
+          },
+          icon: '✅'
+        });
+  
+        // Optionally refetch the assistant data to ensure UI is in sync
+        await fetchAssistantData();
+      }
+    } catch (error) {
+      // Type guard for axios error
+      if (axios.isAxiosError(error)) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        const errorMessage = error.response?.data?.message || 
+                             error.response?.data?.error || 
+                             'Failed to update assistant configuration';
+        
+        toast.error(errorMessage, {
+          duration: 4000,
+          position: 'top-right',
+          style: {
+            background: '#FF6B6B',
+            color: 'white',
+            fontWeight: 'bold',
+          },
+          icon: '❌'
+        });
+  
+        // Log the full error for debugging
+        console.error('Axios Error:', {
+          response: error.response,
+          request: error.request,
+          message: error.message
+        });
+      } else {
+        // Handle non-axios errors
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : 'An unexpected error occurred';
+  
+        toast.error(errorMessage, {
+          duration: 4000,
+          position: 'top-right',
+          style: {
+            background: '#FF6B6B',
+            color: 'white',
+            fontWeight: 'bold',
+          },
+          icon: '❌'
+        });
+  
+        // Log the unexpected error
+        console.error('Unexpected Error:', error);
+      }
+    } finally {
+      // Always stop loading state
+      setIsSendingToVapi(false);
     }
   };
 
@@ -353,27 +478,33 @@ export default function Vapi() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            console.log('Sending to Vapi...', config);
-          }}
-          className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"
+          onClick={handleSendToVapi}
+          disabled={isSendingToVapi}
+          className={`px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2 ${isSendingToVapi ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M14 5l7 7m0 0l-7 7m7-7H3"
-            />
-          </svg>
-          <span>Send to Vapi</span>
+          {isSendingToVapi ? (
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+          ) : (
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14 5l7 7m0 0l-7 7m7-7H3"
+              />
+            </svg>
+          )}
+          <span>{isSendingToVapi ? 'Updating...' : 'Send to Vapi'}</span>
         </motion.button>
+
+        // Add Toaster component in your main render
+        <Toaster />
       </div>
     </div>
   );
