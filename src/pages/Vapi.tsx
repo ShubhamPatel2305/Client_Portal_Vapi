@@ -502,8 +502,6 @@ export default function Vapi() {
           )}
           <span>{isSendingToVapi ? 'Updating...' : 'Send to Vapi'}</span>
         </motion.button>
-
-        // Add Toaster component in your main render
         <Toaster />
       </div>
     </div>
