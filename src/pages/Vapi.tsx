@@ -1,18 +1,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Card } from '@tremor/react';
 import { Tab } from '@headlessui/react';
-import { Settings2, MessageSquare, Mic, PlayCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { Settings2, MessageSquare, Mic, PlayCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, HelpCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { produce } from 'immer';
+import { set } from 'lodash';
+import toast, { Toaster } from 'react-hot-toast';
+import axios from 'axios';
+
+// Components
 import ModelConfig from '../components/vapi/ModelConfig';
 import VoiceConfig from '../components/vapi/VoiceConfig';
 import TranscriberConfig from '../components/vapi/TranscriberConfig';
 import FunctionConfig from '../components/vapi/FunctionConfig';
 import MetricsDisplay from '../components/vapi/MetricsDisplay';
-import vapiService from '../services/vapiService';
 import { AdvancedSettings } from '../components/vapi/AdvancedSettings';
-import axios from 'axios';
-import toast, { Toaster } from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
+import vapiService from '../services/vapiService';
 
 interface AssistantConfig {
   model: {
