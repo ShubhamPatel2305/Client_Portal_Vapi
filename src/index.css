@@ -85,23 +85,48 @@
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-transparent;
+  display: none;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted rounded-full;
+  display: none;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  @apply bg-muted/50;
+  display: none;
+}
+
+/* Enable smooth scrolling for better UX */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* Smooth Transitions */
 .transition-theme {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom button styles */
+.tremor-Button-root {
+  @apply text-black !important;
+}
+
+.tremor-Button-root[data-variant="primary"] {
+  @apply text-white !important;
+}
+
+.tremor-Button-root[data-variant="secondary"] {
+  @apply text-black !important;
+}
+
+/* Ensure white background */
+.tremor-Card-root {
+  @apply bg-white !important;
 }

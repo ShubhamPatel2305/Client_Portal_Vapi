@@ -37,7 +37,7 @@ const MainLayout = () => (
   <AppLayout>
     <div className="flex h-screen">
       <Sidebar />
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-white">
         <Outlet />
       </div>
     </div>

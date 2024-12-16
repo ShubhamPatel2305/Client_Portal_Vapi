@@ -1,10 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Card } from '@tremor/react';
 import { Tab } from '@headlessui/react';
-import { Settings2, MessageSquare, Mic, PlayCircle, Sparkles, RefreshCw } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { produce } from 'immer';
-import { set } from 'lodash';
+import { Settings2, MessageSquare, Mic, PlayCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import ModelConfig from '../components/vapi/ModelConfig';
 import VoiceConfig from '../components/vapi/VoiceConfig';
 import TranscriberConfig from '../components/vapi/TranscriberConfig';
@@ -103,14 +101,14 @@ export default function Vapi() {
     endCallFunctionEnabled: false,
     forwardingPhoneNumber: '',
     hipaaEnabled: true,
-  voicemailMessage: "Please drop a message",
-  endCallMessage: "Thank you for contacting.",
-  recordingEnabled: false,
-  videoRecordingEnabled: false,
-  silenceTimeoutSeconds: 30,
-  maxDurationSeconds: 600,
-  waitSeconds: 60,
-  smartEndpointingEnabled: true
+    voicemailMessage: "Please drop a message",
+    endCallMessage: "Thank you for contacting.",
+    recordingEnabled: false,
+    videoRecordingEnabled: false,
+    silenceTimeoutSeconds: 30,
+    maxDurationSeconds: 600,
+    waitSeconds: 60,
+    smartEndpointingEnabled: true
   });
 
   const [metrics, setMetrics] = useState<MetricsState>({
@@ -122,6 +120,12 @@ export default function Vapi() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSendingToVapi, setIsSendingToVapi] = useState(false);
+
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+
+  const toggleInstructions = () => {
+    setIsInstructionsOpen(!isInstructionsOpen);
+  };
 
   const fetchAssistantData = useCallback(async () => {
     try {
@@ -376,131 +380,148 @@ export default function Vapi() {
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Assistant Configuration</h1>
-        <div className="flex gap-2">
-          {error && (
-            <div className="text-sm text-red-500 mr-2">
-            </div>
-          )}
+    <div className="flex flex-col space-y-6 max-w-7xl mx-auto px-4 py-8">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-gray-900">Assistant Configuration</h1>
+          <p className="text-gray-600">Configure your AI assistant's behavior and capabilities</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={toggleInstructions}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl shadow-sm hover:bg-teal-100 hover:border-teal-300 transition-all duration-200"
+          >
+            <HelpCircle className="w-5 h-5 text-teal-600" />
+            <span className="font-medium">Configuration Instructions</span>
+          </motion.button>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleRefresh}
-            disabled={isLoading}
-            className={`inline-flex items-center px-4 py-3 bg-gray-100 text-gray-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ${isRefreshing || isLoading ? 'animate-spin' : ''} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className="p-2.5 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl shadow-sm hover:bg-teal-100 hover:border-teal-300 transition-all duration-200"
           >
-            <RefreshCw className="w-5 h-5" />
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => {
-              console.log('Testing assistant...', config);
-            }}
-            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <Sparkles className="w-5 h-5 mr-2" />
-            <span>Test Assistant</span>
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin text-teal-600' : ''}`} />
           </motion.button>
         </div>
       </div>
 
-      <Card className="mt-6">
-        <MetricsDisplay cost={metrics.cost} latency={metrics.latency} />
-        
-        <Tab.Group>
-          <Tab.List className="flex space-x-4 border-b border-gray-200 mb-6">
-            {tabs.map((tab) => (
-              <Tab
-                key={tab.id}
-                className={({ selected }) =>
-                  `flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none ${
-                    selected
-                      ? 'text-blue-600 border-b-2 border-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`
-                }
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </Tab>
-            ))}
-          </Tab.List>
+      <AnimatePresence>
+        {isInstructionsOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+            onClick={toggleInstructions}
+          >
+            <motion.div
+              className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl border border-gray-100"
+              onClick={(e) => e.stopPropagation()}
+              initial={{ y: -20 }}
+              animate={{ y: 0 }}
+              exit={{ y: -20 }}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <Settings2 className="w-6 h-6 mr-3 text-blue-600" />
+                  Configuration Instructions
+                </h3>
+                <button
+                  onClick={toggleInstructions}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                >
+                  <ChevronDown className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-6">
+                <ul className="space-y-4">
+                  <li className="flex items-start space-x-4">
+                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">1</span>
+                    <div className="flex-1 pt-1">
+                      <p className="text-gray-700">Customize your AI assistant's settings using the tabs below</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-4">
+                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">2</span>
+                    <div className="flex-1 pt-1">
+                      <p className="text-gray-700">Adjust model, transcriber, voice, and function settings</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-4">
+                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">3</span>
+                    <div className="flex-1 pt-1">
+                      <p className="text-gray-700">Configure advanced options for enhanced control</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-4">
+                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">4</span>
+                    <div className="flex-1 pt-1">
+                      <p className="text-gray-700">Click "Update AI Agent" to apply your changes</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <Tab.Panels>
-            <Tab.Panel>
-              <ModelConfig config={config} onConfigChange={handleConfigChange} />
-            </Tab.Panel>
-            <Tab.Panel>
-              <TranscriberConfig config={config} onConfigChange={handleConfigChange} />
-            </Tab.Panel>
-            <Tab.Panel>
-              <VoiceConfig />
-            </Tab.Panel>
-            <Tab.Panel>
-              <FunctionConfig config={config} onConfigChange={handleConfigChange} />
-            </Tab.Panel>
-            <Tab.Panel>
-              <AdvancedSettings config={config} onConfigChange={handleConfigChange} />
-            </Tab.Panel>
-          </Tab.Panels>
-        </Tab.Group>
-      </Card>
+      <MetricsDisplay cost={metrics.cost} latency={metrics.latency} />
+        
+      <Tab.Group>
+        <Tab.List className="flex space-x-4 border-b border-gray-200 mb-6">
+          {tabs.map((tab) => (
+            <Tab
+              key={tab.id}
+              className={({ selected }) =>
+                `flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none ${
+                  selected
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`
+              }
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </Tab>
+          ))}
+        </Tab.List>
+
+        <Tab.Panels>
+          <Tab.Panel>
+            <ModelConfig config={config} onConfigChange={handleConfigChange} />
+          </Tab.Panel>
+          <Tab.Panel>
+            <TranscriberConfig config={config} onConfigChange={handleConfigChange} />
+          </Tab.Panel>
+          <Tab.Panel>
+            <VoiceConfig />
+          </Tab.Panel>
+          <Tab.Panel>
+            <FunctionConfig config={config} onConfigChange={handleConfigChange} />
+          </Tab.Panel>
+          <Tab.Panel>
+            <AdvancedSettings config={config} onConfigChange={handleConfigChange} />
+          </Tab.Panel>
+        </Tab.Panels>
+      </Tab.Group>
 
       <div className="fixed bottom-6 right-6 flex space-x-4">
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            console.log('Saving as draft...', config);
-          }}
-          className="px-6 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-            />
-          </svg>
-          <span>Save Draft</span>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
           onClick={handleSendToVapi}
           disabled={isSendingToVapi}
-          className={`px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2 ${isSendingToVapi ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-2 ${isSendingToVapi ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {isSendingToVapi ? (
             <Loader2 className="w-5 h-5 animate-spin mr-2" />
           ) : (
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M14 5l7 7m0 0l-7 7m7-7H3"
-              />
-            </svg>
+            <Settings2 className="w-5 h-5 mr-2" />
           )}
-          <span>{isSendingToVapi ? 'Updating...' : 'Send to Vapi'}</span>
+          <span>{isSendingToVapi ? 'Updating...' : 'Update AI Agent'}</span>
         </motion.button>
         <Toaster />
       </div>

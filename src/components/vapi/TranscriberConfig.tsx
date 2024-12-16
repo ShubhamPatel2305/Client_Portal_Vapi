@@ -88,7 +88,7 @@ const TranscriberConfig: React.FC<TranscriberConfigProps> = ({ config, onConfigC
                 <select
                   value={config.transcriber.provider}
                   onChange={(e) => onConfigChange('transcriber.provider', e.target.value)}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900"
                 >
                   {providers.map((provider) => (
                     <option key={provider.value} value={provider.value}>
@@ -115,7 +115,7 @@ const TranscriberConfig: React.FC<TranscriberConfigProps> = ({ config, onConfigC
                 <select
                   value={config.transcriber.language}
                   onChange={(e) => onConfigChange('transcriber.language', e.target.value)}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900"
                 >
                   {languages.map((lang) => (
                     <option key={lang.value} value={lang.value}>
@@ -141,7 +141,7 @@ const TranscriberConfig: React.FC<TranscriberConfigProps> = ({ config, onConfigC
                 <select
                   value={config.transcriber.model}
                   onChange={(e) => onConfigChange('transcriber.model', e.target.value)}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900"
                 >
                   {models.map((model) => (
                     <option key={model.value} value={model.value}>

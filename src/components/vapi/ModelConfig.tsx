@@ -18,6 +18,14 @@ interface ModelConfigProps {
   onConfigChange: (key: string, value: any, options?: { skipMetricsUpdate: boolean }) => void;
 }
 
+interface ModelOption {
+  value: string;
+  label: string;
+  tags?: string[];
+  latency?: number;
+  cost?: number;
+}
+
 const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => {
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -32,6 +40,22 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
     visible: { opacity: 1, y: 0 }
   };
 
+  const openAiModels: ModelOption[] = [
+    { value: 'gpt-4o', label: 'GPT 4o' },
+    { value: 'gpt-4o-mini', label: 'GPT 4o Mini', tags: ['Fastest', 'Cheapest'] },
+    { value: 'gpt-3.5-turbo', label: 'GPT 3.5 Turbo' },
+    { value: 'gpt-4-turbo', label: 'GPT 4 Turbo' },
+    { value: 'gpt-4o-realtime', label: 'GPT 4o Realtime' }
+  ];
+
+  const anthropicModels: ModelOption[] = [
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', latency: 1000, cost: 0.00 },
+    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet', latency: 1000, cost: 0.00 },
+    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', latency: 1000, cost: 0.00 },
+    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet', latency: 1000, cost: 0.00 },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', latency: 1000, cost: 0.00 },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', latency: 1000, cost: 0.00 }
+  ];
 
   return (
     <motion.div
@@ -115,10 +139,10 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                     <select
                       value={config.model.provider}
                       onChange={(e) => onConfigChange('model.provider', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer transition-all duration-200"
+                      className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer transition-all duration-200 text-gray-900"
                     >
-                      <option value="openai">OpenAI</option>
-                      <option value="anthropic">Anthropic</option>
+                      <option value="openai" className="text-gray-900">OpenAI</option>
+                      <option value="anthropic" className="text-gray-900">Anthropic</option>
                     </select>
                     <Cpu className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
                   </div>
@@ -136,13 +160,38 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                     <select
                       value={config.model.name}
                       onChange={(e) => onConfigChange('model.name', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-50 to-pink-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none cursor-pointer transition-all duration-200"
+                      className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-50 to-pink-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none cursor-pointer transition-all duration-200 text-gray-900"
                     >
-                      <option value="gpt-4">GPT-4</option>
-                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                      <option value="claude-2">Claude 2</option>
+                      {config.model.provider === 'openai' ? (
+                        openAiModels.map((model) => (
+                          <option key={model.value} value={model.value} className="text-gray-900">
+                            {model.label}
+                          </option>
+                        ))
+                      ) : (
+                        anthropicModels.map((model) => (
+                          <option key={model.value} value={model.value} className="text-gray-900">
+                            {model.label}
+                          </option>
+                        ))
+                      )}
                     </select>
                     <Bot className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      {config.model.provider === 'openai' ? (
+                        openAiModels.find(m => m.value === config.model.name)?.latency && (
+                          <span className="text-xs text-gray-500">
+                            {openAiModels.find(m => m.value === config.model.name)?.latency} • {openAiModels.find(m => m.value === config.model.name)?.cost}
+                          </span>
+                        )
+                      ) : (
+                        anthropicModels.find(m => m.value === config.model.name)?.latency && (
+                          <span className="text-xs text-gray-500">
+                            {anthropicModels.find(m => m.value === config.model.name)?.latency} • {anthropicModels.find(m => m.value === config.model.name)?.cost}
+                          </span>
+                        )
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               </div>
