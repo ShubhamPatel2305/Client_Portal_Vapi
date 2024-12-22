@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Cursor Styles */
+* {
+  cursor: default;
+}
+
+a, button, [role="button"], input, select, textarea {
+  cursor: pointer;
+}
+
+input[type="text"], input[type="email"], textarea {
+  cursor: text;
+}
+
+/* Typography Styles */
+@font-face {
+  font-family: 'SF Pro Display';
+  src: local(-apple-system);
+  font-weight: 100 900;
+}
+
+.sf-pro-display {
+  font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  font-feature-settings: "ss01" on, "ss02" on, "ss03" on;
+  letter-spacing: -0.02em;
+}
+
+.gradient-text {
+  background: linear-gradient(to right, #fff 20%, #666 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: radial-gradient(circle at center, black, transparent 80%);
+}
+
+/* Custom styles for react-day-picker */
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: #3b82f6;
+  --rdp-background-color: #1f2937;
+  margin: 0;
+}
+
+.rdp-day_selected:not([disabled]) { 
+  background-color: var(--rdp-accent-color);
+  color: white;
+}
+
+.rdp-day_selected:hover:not([disabled]) {
+  background-color: var(--rdp-accent-color);
+  opacity: 0.8;
+}
+
+.rdp-day:hover:not([disabled]) {
+  background-color: #374151;
+}

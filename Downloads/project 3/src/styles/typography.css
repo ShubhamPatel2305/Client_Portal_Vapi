@@ -1,0 +1,18 @@
+@font-face {
+  font-family: 'SF Pro Display';
+  src: local(-apple-system);
+  font-weight: 100 900;
+}
+
+.sf-pro-display {
+  font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  font-feature-settings: "ss01" on, "ss02" on, "ss03" on;
+  letter-spacing: -0.02em;
+}
+
+.gradient-text {
+  background: linear-gradient(to right, #fff 20%, #666 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
