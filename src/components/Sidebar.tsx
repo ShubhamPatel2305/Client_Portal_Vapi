@@ -102,7 +102,7 @@ export default function Sidebar({ className }: SidebarProps) {
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Reports', path: '/reports', icon: FileText },
     { name: 'Billing', path: '/billing', icon: DollarSign },
-    { name: 'AI Calling', path: '/ai-calling', icon: Bot },
+    // { name: 'AI Calling', path: '/ai-calling', icon: Bot },
     { name: 'Team', path: '/team', icon: Users },
     { name: 'Settings', path: '/settings', icon: Settings },
     { name: 'Support', path: '/support', icon: HelpCircle },
