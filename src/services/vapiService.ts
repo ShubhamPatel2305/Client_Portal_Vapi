@@ -246,6 +246,7 @@ export const fetchAnalytics = async (timeRange: string) => {
     }
 
     const data = await response.json();
+    console.log(data);  
     
     // Process and transform the data
     return {
@@ -380,7 +381,7 @@ export const vapiService = {
 
   // Get real-time metrics
   getRealTimeMetrics: async (assistantId: string) => {
-    const response = await vapiAxios.get(`/assistants/${assistantId}/metrics`);
+    const response = await vapiAxios.get(`/assistant/${assistantId}`);
     return response.data;
   },
 };

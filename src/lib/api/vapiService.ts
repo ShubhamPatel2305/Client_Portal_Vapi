@@ -89,7 +89,7 @@ export const vapiService = {
   async getAnalytics(startDate?: Date, endDate?: Date): Promise<Analytics> {
     try {
       const now = new Date();
-      const defaultStartDate = startDate || new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)); // 30 days ago
+      const defaultStartDate = startDate || new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000)); // 30 days ago
       const defaultEndDate = endDate || now;
 
       const { data } = await vapiClient.post('/analytics', {
@@ -97,50 +97,66 @@ export const vapiService = {
           {
             table: "call",
             name: "current_total_duration",
-            operations: [{ operation: "sum", column: "duration" }]
+            operations: [{ operation: "sum", column: "duration" }],
+            timeRange:{
+              start: new Date(now.getTime()-(180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
+            }
           },
           {
             table: "call",
             name: "previous_total_duration",
             operations: [{ operation: "sum", column: "duration" }],
             timeRange: {
-              start: new Date(defaultStartDate.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString(),
-              end: defaultStartDate.toISOString()
+              start: new Date(defaultStartDate.getTime() - (180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
             }
           },
           {
             table: "call",
             name: "current_calls_count",
-            operations: [{ operation: "count", column: "id" }]
+            operations: [{ operation: "count", column: "id" }],
+            timeRange:{
+              start: new Date(now.getTime()-(180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
+            }
           },
           {
             table: "call",
             name: "previous_calls_count",
             operations: [{ operation: "count", column: "id" }],
             timeRange: {
-              start: new Date(defaultStartDate.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString(),
-              end: defaultStartDate.toISOString()
+              start: new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
             }
           },
           {
             table: "call",
             name: "current_total_cost",
-            operations: [{ operation: "sum", column: "cost" }]
+            operations: [{ operation: "sum", column: "cost" }],
+            timeRange:{
+              start: new Date(now.getTime()-(180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
+            }
           },
           {
             table: "call",
             name: "previous_total_cost",
             operations: [{ operation: "sum", column: "cost" }],
             timeRange: {
-              start: new Date(defaultStartDate.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString(),
-              end: defaultStartDate.toISOString()
+              start: new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
             }
           },
           {
             table: "call",
             name: "calls_by_status",
             operations: [{ operation: "count", column: "id" }],
-            groupBy: ["status"]
+            groupBy: ["status"],
+            timeRange:{
+              start: new Date(now.getTime()-(180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
+            }
           },
           {
             table: "call",

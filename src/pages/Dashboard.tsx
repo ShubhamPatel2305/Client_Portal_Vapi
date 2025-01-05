@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { fetchVapiCalls, VapiCall } from '../services/vapiService';
+import { fetchVapiCalls, VapiCall, fetchAnalytics } from '../services/vapiService';
 import {
   Calendar,
   Bell,
