@@ -135,7 +135,7 @@ export default function Vapi() {
       setIsLoading(true);
       setError(null);
       // Assuming you have an assistant ID, replace 'your-assistant-id' with the actual ID
-      const assistantId = '45e1846e-917e-48e6-8859-b5d74051ee35'; // You might want to get this from props or environment
+      const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d'; // You might want to get this from props or environment
       const assistantData = await vapiService.getAssistant(assistantId);
       console.log(assistantData);
   
@@ -292,7 +292,7 @@ export default function Vapi() {
       };
   
       // Perform the API call
-      const assistantId = '45e1846e-917e-48e6-8859-b5d74051ee35';
+      const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
       const response = await axios.patch(
         `https://api.vapi.ai/assistant/${assistantId}`, 
         apiConfig,

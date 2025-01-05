@@ -34,15 +34,69 @@ import {
   Activity as ActivityIcon,
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { fetchDashboardData } from '../lib/api';
-import type { Analytics as AnalyticsType } from '../lib/api/vapiService';
+import axios from 'axios';
 
-// Define interface for trend data
 interface TrendData {
   totalCallMinutesTrend: number;
   numberOfCallsTrend: number;
   totalSpentTrend: number;
   costPerMinuteTrend: number;
+}
+
+interface CallData {
+  id: string;
+  type: string;
+  startedAt: string;
+  endedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  orgId: string;
+  cost: number;
+  webCallUrl: string;
+  status: string;
+  endedReason: string;
+  costBreakdown: {
+    stt: number;
+    llm: number;
+    tts: number;
+    vapi: number;
+    total: number;
+  };
+}
+
+interface HourlyAnalysis {
+  hour: number;
+  calls: number;
+  successRate: number;
+}
+
+interface AnalyticsType {
+  numberOfCalls: number;
+  totalCallMinutes: number;
+  totalSpent: number;
+  callDistribution: {
+    name: string;
+    value: number;
+  }[];
+  callHistory: {
+    date: string;
+    calls: number;
+    minutes: number;
+    cost: number;
+  }[];
+  costBreakdown: {
+    name: string;
+    value: number;
+  }[];
+  qualityMetrics: {
+    name: string;
+    value: string;
+  }[];
+  peakHours?: {
+    hour: number;
+    calls: number;
+    successRate: number;
+  }[];
 }
 
 const timeRanges = [
@@ -53,13 +107,9 @@ const timeRanges = [
 
 const OverviewMetrics: React.FC<{ data: AnalyticsType & Partial<TrendData> }> = ({ data }) => {
   const successRate = data.callDistribution?.find(d => d.name === 'Successful')?.value || 0;
-  
-  // Calculate metrics with proper fallbacks and formatting
   const totalCalls = data.numberOfCalls || 0;
   const avgDuration = (data.totalCallMinutes / (totalCalls || 1)).toFixed(1);
   const avgCostPerMinute = data.totalCallMinutes > 0 ? (data.totalSpent / data.totalCallMinutes) : 0;
-
-  // Safely access nested values
   const successfulCallData = data.callDistribution?.find(d => d.name === 'Successful');
   const successValue = successfulCallData?.value ?? 0;
 
@@ -220,7 +270,7 @@ const PerformanceTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
     cost: Math.random() * 2,
   }));
 
-  const monthlyTrend = data.monthlyTrend?.length > 0 ? data.monthlyTrend : sampleData;
+  const monthlyTrend = data.callHistory?.length > 0 ? data.callHistory : sampleData;
 
   const chartData = monthlyTrend.map(item => ({
     date: format(new Date(item.date), 'MMM d'),
@@ -234,6 +284,8 @@ const PerformanceTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
     hour: `${hour.toString().padStart(2, '0')}:00`,
     calls: Math.floor(Math.random() * 3), // Sample data for visualization
   }));
+
+  
 
   return (
     <div className="space-y-6">
@@ -260,26 +312,30 @@ const PerformanceTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
       </Card>
 
       <Grid numItems={1} numItemsSm={2} className="gap-6">
-        <Card className="bg-white rounded-xl shadow-sm">
-          <Title>Peak Hours Analysis</Title>
-          <Text className="text-gray-500">Call distribution by hour</Text>
-          <div className="space-y-4 mt-4">
-            {hourlyData.map((item, index) => (
-              <div key={item.hour}>
-                <div className="flex justify-between mb-1">
-                  <Text>{item.hour}</Text>
-                  <Text className="font-medium">{item.calls} calls</Text>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                  <div 
-                    className={`h-full ${index % 2 === 0 ? 'bg-blue-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${(item.calls / 3) * 100}%` }}
+      <Card className="mt-6">
+        <Title>Peak Hours Analysis</Title>
+        <div className="mt-4">
+          {data.peakHours.map((peak, index) => (
+            <div key={peak.hour} className="mb-4">
+              <div className="flex justify-between items-center">
+                <Text>{`${peak.hour}:00 - ${peak.hour + 1}:00`}</Text>
+                <Badge color="blue">{peak.calls} calls</Badge>
+              </div>
+              <div className="mt-2">
+                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div
+                    className="h-full bg-blue-500 rounded-full"
+                    style={{ width: `${(peak.calls / Math.max(...data.peakHours.map(p => p.calls))) * 100}%` }}
                   />
                 </div>
+                <Text className="text-sm text-gray-500 mt-1">
+                  Success Rate: {peak.successRate.toFixed(1)}%
+                </Text>
               </div>
-            ))}
-          </div>
-        </Card>
+            </div>
+          ))}
+        </div>
+      </Card>
 
         <Card className="bg-white rounded-xl shadow-sm">
           <Title>Cost Analysis</Title>
@@ -306,6 +362,7 @@ const PerformanceTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
           </div>
         </Card>
       </Grid>
+     
     </div>
   );
 };
@@ -313,7 +370,7 @@ const PerformanceTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
 const DistributionTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
   const donutData = data.callDistribution.map(item => ({
     name: item.name,
-    value: item.count,
+    value: item.value,
   }));
 
   return (
@@ -354,13 +411,13 @@ const DistributionTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
             <div className="flex justify-between items-center">
               <Text>Average Cost per Call</Text>
               <Badge color="blue">
-                ${data.avgCostPerCall.toFixed(2)}
+                ${data.totalSpent / data.numberOfCalls}
               </Badge>
             </div>
             <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
               <div 
                 className="h-full bg-blue-500"
-                style={{ width: `${(data.avgCostPerCall / 2) * 100}%` }}
+                style={{ width: `${(data.totalSpent / data.numberOfCalls / 2) * 100}%` }}
               />
             </div>
           </div>
@@ -388,7 +445,7 @@ const DistributionTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
 const QualityTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
   // Calculate quality metrics
   const avgDuration = data.totalCallMinutes / data.numberOfCalls;
-  const costEfficiency = data.avgCostPerCall;
+  const costEfficiency = data.totalSpent / data.numberOfCalls;
   const successRate = data.callDistribution.find(d => d.name === 'Successful')?.value || 0;
 
   const qualityScore = Math.min(
@@ -470,41 +527,257 @@ const QualityTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
 };
 
 const Analytics: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('30d');
-  const [data, setData] = useState<AnalyticsType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<string>('7d');
+  const [callData, setCallData] = useState<CallData[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsType>({
+    numberOfCalls: 0,
+    totalCallMinutes: 0,
+    totalSpent: 0,
+    callDistribution: [],
+    callHistory: [],
+    costBreakdown: [],
+    qualityMetrics: [],
+    peakHours: []
+  });
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchCallData = async () => {
       try {
-        setLoading(true);
-        const analyticsData = await fetchDashboardData();
-        setData(analyticsData);
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
+        setIsLoading(true);
+        const apiKey = import.meta.env.VITE_VAPI_API_KEY;
+        const response = await axios.get('https://api.vapi.ai/call', {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
+          }
+        });
+
+        const calls: CallData[] = response.data;
+        
+        // Calculate hourly distribution
+        const hourlyData: { [hour: number]: { total: number; successful: number } } = {};
+        
+        calls.forEach(call => {
+          const hour = new Date(call.startedAt).getHours();
+          if (!hourlyData[hour]) {
+            hourlyData[hour] = { total: 0, successful: 0 };
+          }
+          hourlyData[hour].total++;
+          
+          if (call.status === 'ended' && call.endedReason === 'customer-ended-call') {
+            hourlyData[hour].successful++;
+          }
+        });
+
+        // Transform hourly data
+        const hourlyAnalysis: HourlyAnalysis[] = Object.entries(hourlyData).map(([hour, data]) => ({
+          hour: parseInt(hour),
+          calls: data.total,
+          successRate: (data.successful / data.total) * 100
+        }));
+
+        // Find peak hours (top 3 hours with most calls)
+        const peakHours = hourlyAnalysis
+          .sort((a, b) => b.calls - a.calls)
+          .slice(0, 3);
+
+        // Transform the data for analytics
+        const transformedData: AnalyticsType = {
+          numberOfCalls: calls.length,
+          totalCallMinutes: calls.reduce((acc, call) => {
+            const duration = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
+            return acc + (duration / (1000 * 60));
+          }, 0),
+          totalSpent: calls.reduce((acc, call) => acc + call.cost, 0),
+          callDistribution: [
+            {
+              name: 'Successful',
+              value: calls.filter(call => 
+                call.status === 'ended' && 
+                call.endedReason === 'customer-ended-call'
+              ).length
+            },
+            {
+              name: 'Failed - System Error',
+              value: calls.filter(call => 
+                call.status === 'failed' || 
+                call.endedReason === 'system-error'
+              ).length
+            },
+            {
+              name: 'Failed - Customer Dropped',
+              value: calls.filter(call => 
+                call.status === 'ended' && 
+                call.endedReason === 'customer-dropped'
+              ).length
+            },
+            {
+              name: 'Failed - Other',
+              value: calls.filter(call => 
+                call.status !== 'ended' || 
+                (call.endedReason !== 'customer-ended-call' && 
+                 call.endedReason !== 'system-error' && 
+                 call.endedReason !== 'customer-dropped')
+              ).length
+            }
+          ],
+          callHistory: calls.map(call => ({
+            date: format(new Date(call.startedAt), 'yyyy-MM-dd'),
+            calls: 1,
+            minutes: (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / (1000 * 60),
+            cost: call.cost
+          })),
+          costBreakdown: [
+            { name: 'STT', value: calls.reduce((acc, call) => acc + call.costBreakdown.stt, 0) },
+            { name: 'LLM', value: calls.reduce((acc, call) => acc + call.costBreakdown.llm, 0) },
+            { name: 'TTS', value: calls.reduce((acc, call) => acc + call.costBreakdown.tts, 0) },
+            { name: 'Vapi', value: calls.reduce((acc, call) => acc + call.costBreakdown.vapi, 0) }
+          ],
+          qualityMetrics: [
+            {
+              name: 'Peak Hours',
+              value: peakHours.map(ph => `${ph.hour}:00 (${ph.calls} calls)`).join(', ')
+            },
+            {
+              name: 'Average Success Rate',
+              value: `${(hourlyAnalysis.reduce((acc, h) => acc + h.successRate, 0) / hourlyAnalysis.length).toFixed(1)}%`
+            }
+          ],
+          peakHours
+        };
+
+        setCallData(calls);
+        setAnalyticsData(transformedData);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch call data');
+        console.error('Error fetching call data:', err);
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    fetchData();
-  }, [selectedPeriod]);
+    fetchCallData();
+  }, [timeRange]);
 
   const refreshData = async () => {
-    setIsRefreshing(true);
+    setIsLoading(true);
     try {
-      const analyticsData = await fetchDashboardData();
-      setData(analyticsData);
-    } catch (error) {
-      console.error('Error refreshing analytics:', error);
+      const apiKey = import.meta.env.VITE_VAPI_API_KEY;
+      const response = await axios.get('https://api.vapi.ai/call', {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      });
+
+      const calls: CallData[] = response.data;
+        
+      // Calculate hourly distribution
+      const hourlyData: { [hour: number]: { total: number; successful: number } } = {};
+        
+      calls.forEach(call => {
+        const hour = new Date(call.startedAt).getHours();
+        if (!hourlyData[hour]) {
+          hourlyData[hour] = { total: 0, successful: 0 };
+        }
+        hourlyData[hour].total++;
+        
+        if (call.status === 'ended' && call.endedReason === 'customer-ended-call') {
+          hourlyData[hour].successful++;
+        }
+      });
+
+      // Transform hourly data
+      const hourlyAnalysis: HourlyAnalysis[] = Object.entries(hourlyData).map(([hour, data]) => ({
+        hour: parseInt(hour),
+        calls: data.total,
+        successRate: (data.successful / data.total) * 100
+      }));
+
+      // Find peak hours (top 3 hours with most calls)
+      const peakHours = hourlyAnalysis
+        .sort((a, b) => b.calls - a.calls)
+        .slice(0, 3);
+
+      // Transform the data for analytics
+      const transformedData: AnalyticsType = {
+        numberOfCalls: calls.length,
+        totalCallMinutes: calls.reduce((acc, call) => {
+          const duration = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
+          return acc + (duration / (1000 * 60));
+        }, 0),
+        totalSpent: calls.reduce((acc, call) => acc + call.cost, 0),
+        callDistribution: [
+          {
+            name: 'Successful',
+            value: calls.filter(call => 
+              call.status === 'ended' && 
+              call.endedReason === 'customer-ended-call'
+            ).length
+          },
+          {
+            name: 'Failed - System Error',
+            value: calls.filter(call => 
+              call.status === 'failed' || 
+              call.endedReason === 'system-error'
+            ).length
+          },
+          {
+            name: 'Failed - Customer Dropped',
+            value: calls.filter(call => 
+              call.status === 'ended' && 
+              call.endedReason === 'customer-dropped'
+            ).length
+          },
+          {
+            name: 'Failed - Other',
+            value: calls.filter(call => 
+              call.status !== 'ended' || 
+              (call.endedReason !== 'customer-ended-call' && 
+               call.endedReason !== 'system-error' && 
+               call.endedReason !== 'customer-dropped')
+            ).length
+          }
+        ],
+        callHistory: calls.map(call => ({
+          date: format(new Date(call.startedAt), 'yyyy-MM-dd'),
+          calls: 1,
+          minutes: (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / (1000 * 60),
+          cost: call.cost
+        })),
+        costBreakdown: [
+          { name: 'STT', value: calls.reduce((acc, call) => acc + call.costBreakdown.stt, 0) },
+          { name: 'LLM', value: calls.reduce((acc, call) => acc + call.costBreakdown.llm, 0) },
+          { name: 'TTS', value: calls.reduce((acc, call) => acc + call.costBreakdown.tts, 0) },
+          { name: 'Vapi', value: calls.reduce((acc, call) => acc + call.costBreakdown.vapi, 0) }
+        ],
+        qualityMetrics: [
+          {
+            name: 'Peak Hours',
+            value: peakHours.map(ph => `${ph.hour}:00 (${ph.calls} calls)`).join(', ')
+          },
+          {
+            name: 'Average Success Rate',
+            value: `${(hourlyAnalysis.reduce((acc, h) => acc + h.successRate, 0) / hourlyAnalysis.length).toFixed(1)}%`
+          }
+        ],
+        peakHours
+      };
+
+      setCallData(calls);
+      setAnalyticsData(transformedData);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch call data');
+      console.error('Error fetching call data:', err);
     } finally {
-      setIsRefreshing(false);
+      setIsLoading(false);
     }
   };
 
-  if (loading) return <LoadingSpinner />;
-  if (!data) return null;
+  if (isLoading) return <LoadingSpinner />;
+  if (!analyticsData) return null;
 
   return (
     <motion.div
@@ -526,8 +799,8 @@ const Analytics: React.FC = () => {
           
           <div className="flex items-center gap-4">
             <Select
-              value={selectedPeriod}
-              onValueChange={setSelectedPeriod}
+              value={timeRange}
+              onValueChange={setTimeRange}
               className="min-w-[180px]"
             >
               {timeRanges.map((range, index) => (
@@ -539,11 +812,11 @@ const Analytics: React.FC = () => {
             
             <Button
               onClick={refreshData}
-              disabled={isRefreshing}
+              disabled={isLoading}
               variant="secondary"
               className="bg-white hover:bg-gray-50 border border-gray-200 shadow-sm px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200"
             >
-              {isRefreshing ? (
+              {isLoading ? (
                 <>
                   <LoadingSpinner size={16} />
                   <span>Refreshing...</span>
@@ -559,7 +832,7 @@ const Analytics: React.FC = () => {
         </div>
       </div>
 
-      <OverviewMetrics data={data} />
+      <OverviewMetrics data={analyticsData} />
 
       <TabGroup>
         <TabList className="mb-8">
@@ -569,13 +842,13 @@ const Analytics: React.FC = () => {
         </TabList>
         <TabPanels>
           <TabPanel>
-            <PerformanceTab data={data} />
+            <PerformanceTab data={analyticsData} />
           </TabPanel>
           <TabPanel>
-            <DistributionTab data={data} />
+            <DistributionTab data={analyticsData} />
           </TabPanel>
           <TabPanel>
-            <QualityTab data={data} />
+            <QualityTab data={analyticsData} />
           </TabPanel>
         </TabPanels>
       </TabGroup>
