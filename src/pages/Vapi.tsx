@@ -135,10 +135,10 @@ export default function Vapi() {
       setIsLoading(true);
       setError(null);
       // Assuming you have an assistant ID, replace 'your-assistant-id' with the actual ID
-      const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d'; // You might want to get this from props or environment
+      const assistantId = '45e1846e-917e-48e6-8859-b5d74051ee35'; // You might want to get this from props or environment
       const assistantData = await vapiService.getAssistant(assistantId);
       console.log(assistantData);
-      
+  
       // Map the assistant data to your config structure
       setConfig(prevConfig => ({
         ...prevConfig,
@@ -146,36 +146,35 @@ export default function Vapi() {
           provider: assistantData.model?.provider || prevConfig.model.provider,
           name: assistantData.model?.model || prevConfig.model.name,
           firstMessage: assistantData.firstMessage || prevConfig.model.firstMessage,
-          systemPrompt: assistantData.model?.systemPrompt || prevConfig.model.systemPrompt,
+          systemPrompt: assistantData.model?.messages?.find(msg => msg.role === 'system')?.content || prevConfig.model.systemPrompt,
           temperature: assistantData.model?.temperature ?? prevConfig.model.temperature,
-          emotionRecognition: assistantData.model?.emotionRecognitionEnabled ?? prevConfig.model.emotionRecognition
+          emotionRecognition: prevConfig.model.emotionRecognition // Not in new API response, keep existing
         },
         transcriber: {
-          provider: assistantData.transcriber?.provider || prevConfig.transcriber.provider,
-          language: assistantData.transcriber?.language || prevConfig.transcriber.language,
-          model: assistantData.transcriber?.model || prevConfig.transcriber.model,
-          enhancedFiltering: assistantData.backgroundDenoisingEnabled ?? prevConfig.transcriber.enhancedFiltering
+          provider: prevConfig.transcriber.provider, // Not in new API response, keep existing
+          language: prevConfig.transcriber.language, // Not in new API response, keep existing
+          model: prevConfig.transcriber.model, // Not in new API response, keep existing
+          enhancedFiltering: prevConfig.transcriber.enhancedFiltering // Not in new API response, keep existing
         },
         voice: {
           provider: assistantData.voice?.provider || prevConfig.voice.provider,
           voice: assistantData.voice?.voiceId || prevConfig.voice.voice,
           speed: prevConfig.voice.speed // Keep existing if not in API
         },
-        functions: prevConfig.functions,
-        dialKeypadFunctionEnabled: assistantData.dialKeypadFunctionEnabled,
-        endCallFunctionEnabled: assistantData.endCallFunctionEnabled,
-        forwardingPhoneNumber: assistantData.forwardingPhoneNumber,
-        hipaaEnabled: assistantData.hipaaEnabled,
-        voicemailMessage: assistantData.messages?.voicemail || prevConfig.voicemailMessage,
-        endCallMessage: assistantData.messages?.endCall || prevConfig.endCallMessage,
-        recordingEnabled: assistantData.recordingEnabled,
-        videoRecordingEnabled: assistantData.videoRecordingEnabled,
-        silenceTimeoutSeconds: assistantData.silenceTimeoutSeconds,
-        maxDurationSeconds: assistantData.maxDurationSeconds,
-        waitSeconds: assistantData.waitSeconds,
-        smartEndpointingEnabled: assistantData.smartEndpointingEnabled
+        functions: prevConfig.functions, // Not in new API response, keep existing
+        dialKeypadFunctionEnabled: prevConfig.dialKeypadFunctionEnabled, // Not in new API response, keep existing
+        endCallFunctionEnabled: prevConfig.endCallFunctionEnabled, // Not in new API response, keep existing
+        forwardingPhoneNumber: prevConfig.forwardingPhoneNumber, // Not in new API response, keep existing
+        hipaaEnabled: prevConfig.hipaaEnabled, // Not in new API response, keep existing
+        voicemailMessage: assistantData.voicemailMessage || prevConfig.voicemailMessage,
+        endCallMessage: assistantData.endCallMessage || prevConfig.endCallMessage,
+        videoRecordingEnabled: prevConfig.videoRecordingEnabled, // Not in new API response, keep existing
+        silenceTimeoutSeconds: prevConfig.silenceTimeoutSeconds, // Not in new API response, keep existing
+        maxDurationSeconds: prevConfig.maxDurationSeconds, // Not in new API response, keep existing
+        waitSeconds: prevConfig.waitSeconds, // Not in new API response, keep existing
+        smartEndpointingEnabled: prevConfig.smartEndpointingEnabled // Not in new API response, keep existing
       }));
-
+  
       // Get real-time metrics
       const metrics = await vapiService.getRealTimeMetrics(assistantId);
       setMetrics({
@@ -287,13 +286,13 @@ export default function Vapi() {
         voicemailMessage: config.voicemailMessage,
         endCallMessage: config.endCallMessage,
         recordingEnabled: config.recordingEnabled,
-        silenceTimeoutSeconds: config.silenceTimeoutSeconds,
+        silenceTimeoutSeconds: config.silenceTimeoutSeconds,  
         maxDurationSeconds: config.maxDurationSeconds,
         firstMessage: config.model.firstMessage
       };
   
       // Perform the API call
-      const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
+      const assistantId = '45e1846e-917e-48e6-8859-b5d74051ee35';
       const response = await axios.patch(
         `https://api.vapi.ai/assistant/${assistantId}`, 
         apiConfig,
