@@ -201,40 +201,81 @@ export default function Vapi() {
   }, [fetchAssistantData]);
 
   const calculateMetrics = (config: AssistantConfig) => {
-    let baseCost = 0.08;
-    let baseLatency = 950;
+    let cost = 0.08; // Default cost
+    let latency = 950; // Default latency
 
-    // Model-based calculations
+    // Model-based calculations for OpenAI
     if (config.model.provider === 'openai') {
-      if (config.model.name === 'gpt-4') {
-        baseCost *= 1.5;
-        baseLatency += 200;
-      } else if (config.model.name === 'gpt-3.5-turbo') {
-        baseCost *= 0.8;
-        baseLatency -= 100;
+      switch (config.model.name) {
+        case 'gpt-4o':
+          cost = 0.11;
+          latency = 900;
+          break;
+        case 'gpt-4o-mini':
+          cost = 0.08;
+          latency = 750;
+          break;
+        case 'gpt-3.5-turbo':
+          cost = 0.08;
+          latency = 700;
+          break;
+        case 'gpt-4-turbo':
+          cost = 0.24;
+          latency = 1250;
+          break;
+        case 'gpt-4o-realtime':
+          cost = 0.74;
+          latency = 700;
+          break;
+      }
+    }
+    // Model-based calculations for Anthropic
+    else if (config.model.provider === 'anthropic') {
+      switch (config.model.name) {
+        case 'claude-3-opus-20240229':
+          cost = 0.33;
+          latency = 1450;
+          break;
+        case 'claude-3-sonnet-20240229':
+          cost = 0.12;
+          latency = 1450;
+          break;
+        case 'claude-3-haiku-20240307':
+          cost = 0.08;
+          latency = 850;
+          break;
+        case 'claude-3-5-sonnet-20240620':
+        case 'claude-3-5-sonnet-20241022':
+          cost = 0.12;
+          latency = 950;
+          break;
+        case 'claude-3-5-haiku-20241022':
+          cost = 0.12;
+          latency = 950;
+          break;
       }
     }
 
     // Transcriber-based calculations
     if (config.transcriber.provider === 'whisper') {
       if (config.transcriber.model === 'enhanced') {
-        baseCost += 0.02;
-        baseLatency += 100;
+        cost += 0.02;
+        latency += 100;
       } else if (config.transcriber.model === 'premium') {
-        baseCost += 0.05;
-        baseLatency += 200;
+        cost += 0.05;
+        latency += 200;
       }
     }
 
     // Voice-based calculations
     if (config.voice.provider === 'elevenlabs') {
-      baseCost += 0.03;
-      baseLatency += config.voice.speed > 1 ? 50 : 0;
+      cost += 0.03;
+      latency += config.voice.speed > 1 ? 50 : 0;
     }
 
     return {
-      cost: Number(baseCost.toFixed(2)),
-      latency: Math.round(baseLatency)
+      cost: Number(cost.toFixed(2)),
+      latency: Math.round(latency)
     };
   };
 

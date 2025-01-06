@@ -103,22 +103,18 @@ const formatDateTime = (dateString: string): string => {
 
 const getCurrentMonthKey = (): string => {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
 };
 
 const getAllMonthsInRange = (data: Analytics | null): string[] => {
-  if (!data || !data.monthlyCallData) return [];
+  if (!data?.monthlyCallData) return [];
   
-  return data.monthlyCallData
-    .map(item => item.date)
-    .filter((date): date is string => {
-      if (!date) return false;
-      // Validate date format
-      if (!/^\d{4}-\d{2}$/.test(date)) return false;
-      const [year, month] = date.split('-').map(num => parseInt(num, 10));
-      return !isNaN(year) && !isNaN(month) && month >= 1 && month <= 12;
-    })
-    .sort((a, b) => a.localeCompare(b));
+  return [...new Set(data.monthlyCallData.map(item => item.date))]
+    .sort((a, b) => {
+      const [yearA, monthA] = a.split('-').map(Number);
+      const [yearB, monthB] = b.split('-').map(Number);
+      return (yearB * 12 + monthB) - (yearA * 12 + monthA);
+    });
 };
 
 const containerVariants = {
@@ -169,7 +165,7 @@ export default function Dashboard() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthKey());
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [calls, setCalls] = useState<VapiCall[]>([]);
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -356,17 +352,19 @@ export default function Dashboard() {
       >
         <div className="relative">
           <div className="relative space-y-2">
-            <Title className="text-4xl font-bold">
-              {user?.displayName ? `${getFirstName(user.displayName)}'s Dashboard` : 'Dashboard'}
-            </Title>
-            <Text className="text-lg text-gray-500 flex items-center gap-2">
-              <span>Last updated: {format(new Date(), 'MMM d, yyyy, h:mm a')}</span>
-              {user?.email && (
-                <span className="text-sm px-3 py-1 rounded-full">
-                  {user.email}
-                </span>
-              )}
-            </Text>
+            <div className="flex flex-col">
+              <Title className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                {user?.displayName ? `${getFirstName(user.displayName)}'s Dashboard` : 'Dashboard'}
+              </Title>
+              <Text className="text-lg text-gray-500 flex items-center gap-2 mt-2">
+                <span className="font-medium">Last updated: {format(new Date(), 'MMM d, yyyy, h:mm a')}</span>
+                {user?.email && (
+                  <span className="text-sm px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full font-medium">
+                    {user.email}
+                  </span>
+                )}
+              </Text>
+            </div>
           </div>
         </div>
 
@@ -602,7 +600,7 @@ export default function Dashboard() {
                           <div key={item.name} className="flex items-center gap-2">
                             <div 
                               className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: index === 0 ? "#8b5cf6" : index === 1 ? "#10b981" : "#f59e0b" }}
+                              style={{ backgroundColor: index === 0 ? "#ef4444" : index === 1 ? "#10b981" : "#f59e0b" }}
                             />
                             <Text className="text-sm text-gray-600">
                               {item.name.split('-')[0]}
@@ -619,7 +617,7 @@ export default function Dashboard() {
                           category="value"
                           index="name"
                           valueFormatter={(value: number) => `${value.toFixed(1)}%`}
-                          colors={["#8b5cf6", "#10b981", "#f59e0b"]}
+                          colors={["#ef4444", "#10b981", "#f59e0b"]}
                           showAnimation={true}
                           className="h-[300px]"
                           showTooltip={false}
@@ -635,7 +633,7 @@ export default function Dashboard() {
                             >
                               <div 
                                 className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: index === 0 ? "#8b5cf6" : index === 1 ? "#10b981" : "#f59e0b" }}
+                                style={{ backgroundColor: index === 0 ? "#ef4444" : index === 1 ? "#10b981" : "#f59e0b" }}
                               />
                               <div className="flex items-center gap-2">
                                 <Text className="text-gray-900 font-medium">
@@ -800,18 +798,23 @@ export default function Dashboard() {
                       <Title className="text-2xl font-bold text-gray-900">Cost Analysis</Title>
                       <Text className="text-sm text-gray-600">Monthly breakdown of calls and costs</Text>
                     </div>
-                    <Select
-                      value={selectedMonth}
-                      onValueChange={setSelectedMonth}
-                      className="w-40"
-                    >
-                      <SelectItem value="">All Months</SelectItem>
-                      {getAllMonthsInRange(data).map((monthKey) => (
-                        <SelectItem key={monthKey} value={monthKey}>
-                          {formatMonthYear(monthKey)}
-                        </SelectItem>
-                      ))}
-                    </Select>
+                    <div className="flex items-center gap-4">
+                      <Select
+                        value={selectedMonth}
+                        onValueChange={setSelectedMonth}
+                        className="w-48"
+                      >
+                        <SelectItem value="">All Months</SelectItem>
+                        {getAllMonthsInRange(data).map((monthKey) => (
+                          <SelectItem 
+                            key={monthKey} 
+                            value={monthKey}
+                          >
+                            {formatMonthYear(monthKey)}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                    </div>
                   </div>
 
                   <div className="h-[300px] w-full pl-4" style={{ minWidth: '200px', minHeight: '200px' }}>
@@ -844,7 +847,7 @@ export default function Dashboard() {
                                 minimumFractionDigits: 2,
                               }).format(value);
                         }}
-                        showLegend={false}
+                        showLegend={true}
                         showAnimation={true}
                         showGridLines={false}
                         showXAxis={true}

@@ -116,7 +116,7 @@ const sections: Record<string, Section> = {
             transition={{ delay: 0.4 }}
             className="bg-blue-50 rounded-xl p-6"
           >
-            <h3 className="text-lg font-semibold text-blue-900 mb-4">2024 Vision Goals</h3>
+            <h3 className="text-lg font-semibold text-blue-900 mb-4">2025 Vision Goals</h3>
             <div className="space-y-4">
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
@@ -274,11 +274,11 @@ const sections: Record<string, Section> = {
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white rounded-lg p-3 text-center">
                   <div className="text-xl font-bold text-amber-600 mb-1">50+</div>
-                  <p className="text-xs text-gray-600">Patents Filed</p>
+                  <p className="text-xs text-gray-600">Automation</p>
                 </div>
                 <div className="bg-white rounded-lg p-3 text-center">
-                  <div className="text-xl font-bold text-amber-600 mb-1">100+</div>
-                  <p className="text-xs text-gray-600">Research Papers</p>
+                  <div className="text-xl font-bold text-amber-600 mb-1">10+</div>
+                  <p className="text-xs text-gray-600">Conversational AI</p>
                 </div>
               </div>
             </div>
@@ -292,16 +292,15 @@ const sections: Record<string, Section> = {
 const teamMembers: TeamMember[] = [
   {
     name: "Moksh Patel",
-    role: "Chief Technology Officer",
+    role: "Owner",
     image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop",
     description: "Visionary tech leader with expertise in AI, cloud architecture, and digital transformation. Pioneer in developing innovative solutions that reshape industries. Driving technological excellence through strategic leadership and cutting-edge implementations.",
     achievements: [
-      "Led 50+ successful enterprise projects",
-      "Expert in AI/ML implementation",
-      "Cloud architecture specialist",
-      "Digital transformation pioneer"
+      "Led 10+ successfultech projects",
+      "Expert in webdevlopment implementation",
+      "Cloud architecture specialist"
     ],
-    skills: ["AI/ML", "Cloud Architecture", "Innovation Leadership", "Strategic Planning"],
+    skills: ["Web Development", "Cloud", "Innovation Leadership", "Strategic Planning" ],
     socialLinks: {
       linkedin: "https://www.linkedin.com/in/mokshpatel",
       twitter: "https://twitter.com/mokshpatel",
@@ -309,21 +308,21 @@ const teamMembers: TeamMember[] = [
     }
   },
   {
-    name: "Mox",
-    role: "Chief Innovation Officer",
+    name: "Smit Tilva",
+    role: "Owner",
     image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1000&auto=format&fit=crop",
     description: "Revolutionary innovator driving technological breakthroughs. Specializes in emerging technologies and creating future-ready solutions. Leading the charge in digital innovation and transformative technology solutions.",
     achievements: [
       "Pioneered cutting-edge tech solutions",
       "Innovation strategy expert",
-      "Digital transformation leader",
-      "Tech visionary and mentor"
+      "Conversational AI expert",
+      "Automation specialist"
     ],
-    skills: ["Innovation Strategy", "Digital Transformation", "Tech Leadership", "Product Vision"],
+    skills: ["Conversational AI", "Digital Transformation", "Tech Leadership", "Automation" ],
     socialLinks: {
-      linkedin: "https://www.linkedin.com/in/mox",
-      twitter: "https://twitter.com/mox",
-      github: "https://github.com/mox"
+      linkedin: "https://www.linkedin.com/in/smittilva",
+      twitter: "https://twitter.com/smittilva",
+      github: "https://github.com/smittilva"
     }
   }
 ];

@@ -41,20 +41,20 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
   };
 
   const openAiModels: ModelOption[] = [
-    { value: 'gpt-4o', label: 'GPT 4o' },
-    { value: 'gpt-4o-mini', label: 'GPT 4o Mini', tags: ['Fastest', 'Cheapest'] },
-    { value: 'gpt-3.5-turbo', label: 'GPT 3.5 Turbo' },
-    { value: 'gpt-4-turbo', label: 'GPT 4 Turbo' },
-    { value: 'gpt-4o-realtime', label: 'GPT 4o Realtime' }
+    { value: 'gpt-4o', label: 'GPT 4o', latency: 900, cost: 0.11 },
+    { value: 'gpt-4o-mini', label: 'GPT 4o Mini', latency: 750, cost: 0.08, tags: ['Fastest', 'Cheapest'] },
+    { value: 'gpt-3.5-turbo', label: 'GPT 3.5 Turbo', latency: 700, cost: 0.08 },
+    { value: 'gpt-4-turbo', label: 'GPT 4 Turbo', latency: 1250, cost: 0.24 },
+    { value: 'gpt-4o-realtime', label: 'GPT 4o Realtime', latency: 700, cost: 0.74 }
   ];
 
   const anthropicModels: ModelOption[] = [
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', latency: 1000, cost: 0.00 },
-    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet', latency: 1000, cost: 0.00 },
-    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', latency: 1000, cost: 0.00 },
-    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet', latency: 1000, cost: 0.00 },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', latency: 1000, cost: 0.00 },
-    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', latency: 1000, cost: 0.00 }
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', latency: 1450, cost: 0.33 },
+    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet', latency: 1450, cost: 0.12 },
+    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', latency: 850, cost: 0.08 },
+    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet', latency: 950, cost: 0.12 },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', latency: 950, cost: 0.12 },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', latency: 950, cost: 0.12 }
   ];
 
   return (

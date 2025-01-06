@@ -89,9 +89,9 @@ const FunctionConfig = React.memo<FunctionConfigProps>(({ config, onConfigChange
           <motion.div variants={itemVariants} className="space-y-6">
             {/* End Call Function */}
             <div className="relative group">
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl transition-all duration-200">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-orange-50 border border-gray-200 rounded-xl transition-all duration-200">
                 <div className="flex items-center space-x-4">
-                  <div className="p-2 bg-indigo-100 rounded-lg">
+                  <div className="p-2 bg-blue-100 rounded-lg">
                     <PhoneCall className="h-5 w-5 text-indigo-600" />
                   </div>
                   <div>
@@ -120,9 +120,9 @@ const FunctionConfig = React.memo<FunctionConfigProps>(({ config, onConfigChange
 
             {/* Dial Keypad */}
             <div className="relative group">
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl transition-all duration-200">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-purple-50 border border-gray-200 rounded-xl transition-all duration-200">
                 <div className="flex items-center space-x-4">
-                  <div className="p-2 bg-indigo-100 rounded-lg">
+                  <div className="p-2 bg-red-100 rounded-lg">
                     <KeyRound className="h-5 w-5 text-indigo-600" />
                   </div>
                   <div>
@@ -153,7 +153,7 @@ const FunctionConfig = React.memo<FunctionConfigProps>(({ config, onConfigChange
             <div className="relative group">
               <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 border border-gray-200 rounded-xl transition-all duration-200">
                 <div className="flex items-center space-x-4 mb-4">
-                  <div className="p-2 bg-indigo-100 rounded-lg">
+                  <div className="p-2 bg-green-100 rounded-lg">
                     <Phone className="h-5 w-5 text-indigo-600" />
                   </div>
                   <div>
