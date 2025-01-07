@@ -27,14 +27,14 @@ import { Analytics } from '../lib/api/vapiService';
 import PerformanceReport from '../components/reports/PerformanceReport';
 import CallAnalyticsReport from '../components/reports/CallAnalyticsReport';
 import UserEngagementReport from '../components/reports/UserEngagementReport';
-import RegionalReport from '../components/reports/RegionalReport';
+// import RegionalReport from '../components/reports/RegionalReport';
 import ComprehensiveReport from '../components/reports/ComprehensiveReport';
 
 const reportTypes = [
   { value: 'performance', label: 'Performance Report' },
   { value: 'calls', label: 'Call Analytics Report' },
   { value: 'user', label: 'User Engagement Report' },
-  { value: 'regional', label: 'Regional Analysis Report' },
+  // { value: 'regional', label: 'Regional Analysis Report' },
   { value: 'comprehensive', label: 'Comprehensive Report' },
 ] as const;
 
@@ -124,10 +124,19 @@ export default function Reports() {
         return <CallAnalyticsReport data={data} loading={loading} />;
       case 'user':
         return <UserEngagementReport data={data} loading={loading} />;
-      case 'regional':
-        return <RegionalReport data={data} loading={loading} />;
+      // case 'regional':
+      //   return <RegionalReport data={data} loading={loading} />;
       case 'comprehensive':
-        return <ComprehensiveReport data={data} loading={loading} />;
+        return (
+          <ComprehensiveReport 
+            data={data} 
+            loading={loading}
+            dateRange={{ 
+              from: dateRange.from || startOfDay(subDays(new Date(), 30)), 
+              to: dateRange.to || endOfDay(new Date()) 
+            }}
+          />
+        );
       default:
         return null;
     }
@@ -142,7 +151,7 @@ export default function Reports() {
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+          <h1 className="text-5xl font-bold text-gray-900">Reports</h1>
           <p className="text-gray-500">Generate and export detailed analytics reports</p>
         </div>
         

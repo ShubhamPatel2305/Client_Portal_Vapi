@@ -49,6 +49,7 @@ export interface MonthlyCallData {
 }
 
 export interface Analytics {
+  results: AnalyticsResult[];
   totalCallMinutes: number;
   totalCallMinutesTrend: number;
   numberOfCalls: number;

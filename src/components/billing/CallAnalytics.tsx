@@ -6,8 +6,40 @@ import { AreaChart, BarChart } from '@tremor/react';
 import { generateAnalyticsReport, generateInvoice } from '../../utils/pdfGenerators';
 import { format } from 'date-fns';
 
+interface CallDetail {
+  id: string;
+  type: string;
+  startedAt: string;
+  endedAt: string;
+  cost: number;
+  status: string;
+  endedReason?: string;
+  costBreakdown?: any;
+}
+
 interface CallAnalyticsProps {
-  data: any;
+  data: {
+    calls: {
+      total: number;
+      inbound: number;
+      outbound: number;
+      avgDuration: number;
+      cost: string;
+      details: CallDetail[];
+      dailyStats: Array<{
+        date: Date;
+        totalCalls: number;
+        avgDuration: number;
+        cost: string;
+      }>;
+      callDistribution: Array<{
+        name: string;
+        value: number;
+        trend: string;
+        color: string;
+      }>;
+    };
+  };
   selectedMonth: number;
   onMonthChange: (month: number) => void;
 }
@@ -31,11 +63,25 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
                      'July', 'August', 'September', 'October', 'November', 'December'];
 
   // Format the daily stats data for the chart
-  const formattedDailyStats = data.calls.dailyStats.map((stat: any) => ({
-    date: format(new Date(stat.date), 'MMM dd'),
-    totalCalls: stat.totalCalls,
-    avgDuration: stat.avgDuration
+  const formattedDailyStats = data.calls.dailyStats.map(stat => ({
+    date: format(stat.date, 'MMM dd'),
+    'Total Calls': stat.totalCalls,
+    'Average Duration (min)': Math.round(stat.avgDuration / 60)
   }));
+
+  // Format call distribution data for the chart
+  const callDistributionData = [{
+    name: 'Call Types',
+    ...Object.fromEntries(data.calls.callDistribution.map(dist => [
+      dist.name.charAt(0).toUpperCase() + dist.name.slice(1) + ' Calls',
+      dist.value
+    ]))
+  }];
+
+  const callDistributionColors = data.calls.callDistribution.map(dist => dist.color);
+  const callDistributionCategories = data.calls.callDistribution.map(
+    dist => dist.name.charAt(0).toUpperCase() + dist.name.slice(1) + ' Calls'
+  );
 
   const handleDownloadReport = () => {
     const reportData = {
@@ -44,12 +90,19 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
       outboundCalls: data.calls.outbound,
       avgDuration: Math.floor(data.calls.avgDuration / 60),
       totalCost: parseFloat(data.calls.cost),
-      successRate: 95,
-      dailyStats: data.calls.dailyStats.map((stat: any) => ({
-        date: format(new Date(stat.date), 'MMM dd'),
+      successRate: data.calls.callDistribution.find(d => d.name === 'success')?.value || 0,
+      dailyStats: data.calls.dailyStats.map(stat => ({
+        date: format(stat.date, 'MMM dd'),
         totalCalls: stat.totalCalls
       })),
-      callDetails: data.calls.details
+      callDetails: data.calls.details.map(call => ({
+        id: call.id,
+        date: format(new Date(call.startedAt), 'MMM dd, yyyy HH:mm'),
+        type: call.type,
+        duration: new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime(),
+        cost: call.cost,
+        status: call.status
+      }))
     };
 
     const doc = generateAnalyticsReport(reportData);
@@ -68,20 +121,12 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
       date: new Date().toISOString(),
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       billingPeriod: `${monthNames[selectedMonth]} 2024`,
-      services: [
-        {
-          name: 'Inbound Calls',
-          quantity: data.calls.inbound,
-          rate: 0.05,
-          amount: data.calls.inbound * 0.05
-        },
-        {
-          name: 'Outbound Calls',
-          quantity: data.calls.outbound,
-          rate: 0.07,
-          amount: data.calls.outbound * 0.07
-        }
-      ],
+      services: data.calls.callDistribution.map(dist => ({
+        name: `${dist.name.charAt(0).toUpperCase() + dist.name.slice(1)} Calls`,
+        quantity: dist.value,
+        rate: dist.name === 'inbound' ? 0.05 : 0.07,
+        amount: dist.value * (dist.name === 'inbound' ? 0.05 : 0.07)
+      })),
       subtotal: parseFloat(data.calls.cost),
       tax: parseFloat(data.calls.cost) * 0.1,
       total: parseFloat(data.calls.cost) * 1.1
@@ -164,7 +209,7 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
                 className="h-72"
                 data={formattedDailyStats}
                 index="date"
-                categories={['totalCalls', 'avgDuration']}
+                categories={['Total Calls', 'Average Duration (min)']}
                 colors={['blue', 'green']}
                 valueFormatter={(value) => value.toString()}
                 showLegend={true}
@@ -184,18 +229,10 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
               <h3 className="text-lg font-semibold mb-4">Call Distribution</h3>
               <BarChart
                 className="h-72"
-                data={[
-                  {
-                    name: 'Call Types',
-                    'Inbound Calls': data.calls.inbound,
-                    'Outbound Calls': data.calls.outbound,
-                    'Missed Calls': Math.floor(Math.random() * 50),
-                    'Failed Calls': Math.floor(Math.random() * 20)
-                  }
-                ]}
+                data={callDistributionData}
                 index="name"
-                categories={['Inbound Calls', 'Outbound Calls', 'Missed Calls', 'Failed Calls']}
-                colors={['emerald', 'blue', 'amber', 'rose']}
+                categories={callDistributionCategories}
+                colors={callDistributionColors}
                 valueFormatter={(value) => value.toString()}
                 showLegend={true}
               />
@@ -203,49 +240,50 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
           </AnimatePresence>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-6">
           <h3 className="text-lg font-semibold mb-4">Call Details</h3>
           <div className="overflow-x-auto">
-            <table className="min-w-full bg-white">
-              <thead>
-                <tr className="bg-blue-100">
-                  <th className="px-4 py-2 text-left">Call ID</th>
-                  <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Type</th>
-                  <th className="px-4 py-2 text-left">Duration</th>
-                  <th className="px-4 py-2 text-left">Cost</th>
-                  <th className="px-4 py-2 text-left">Status</th>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
-              <tbody>
-                {data.calls.details.map((call: any, index: number) => (
-                  <motion.tr
-                    key={call.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="border-b border-gray-200 hover:bg-gray-50"
-                  >
-                    <td className="px-4 py-2">{call.id}</td>
-                    <td className="px-4 py-2">{format(new Date(call.date), 'MM/dd/yyyy')}</td>
-                    <td className="px-4 py-2">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        call.type === 'Inbound' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {call.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">{formatDuration(call.duration)}</td>
-                    <td className="px-4 py-2">${call.cost}</td>
-                    <td className="px-4 py-2">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        call.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {call.status}
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
+              <tbody className="bg-white divide-y divide-gray-200">
+                {data.calls.details.map((call) => {
+                  const duration = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
+                  const durationInSeconds = Math.floor(duration / 1000);
+                  
+                  return (
+                    <tr key={call.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {format(new Date(call.startedAt), 'MMM dd, yyyy HH:mm')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {call.type === 'webCall' ? 'Web Call' : call.type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatDuration(durationInSeconds)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${call.cost.toFixed(3)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          call.status === 'ended' ? 'bg-green-100 text-green-800' :
+                          call.status === 'failed' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

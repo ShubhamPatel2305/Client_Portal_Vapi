@@ -12,7 +12,6 @@ import {
   Grid,
   Select,
   SelectItem,
-  BarChart,
   Button,
   Badge,
   AreaChart,
@@ -29,7 +28,6 @@ import {
   Clock,
   Phone,
   DollarSign,
-  BarChart as BarChartIcon,
   PieChart as PieChartIcon,
   Activity as ActivityIcon,
 } from 'lucide-react';
@@ -44,24 +42,16 @@ interface TrendData {
 }
 
 interface CallData {
+  costBreakdown: any;
+  endedReason: string;
   id: string;
   type: string;
   startedAt: string;
   endedAt: string;
   createdAt: string;
-  updatedAt: string;
-  orgId: string;
-  cost: number;
-  webCallUrl: string;
   status: string;
-  endedReason: string;
-  costBreakdown: {
-    stt: number;
-    llm: number;
-    tts: number;
-    vapi: number;
-    total: number;
-  };
+  duration: number;
+  cost: number;
 }
 
 interface HourlyAnalysis {
@@ -71,41 +61,43 @@ interface HourlyAnalysis {
 }
 
 interface AnalyticsType {
+  costPerMinuteTrend: undefined;
   numberOfCalls: number;
   totalCallMinutes: number;
   totalSpent: number;
-  callDistribution: {
+  callDistribution: Array<{
     name: string;
     value: number;
-  }[];
-  callHistory: {
+  }>;
+  callHistory: Array<{
     date: string;
     calls: number;
     minutes: number;
     cost: number;
-  }[];
-  costBreakdown: {
+  }>;
+  costBreakdown: Array<{
     name: string;
     value: number;
-  }[];
-  qualityMetrics: {
+  }>;
+  qualityMetrics: Array<{
     name: string;
     value: string;
-  }[];
-  peakHours?: {
-    hour: number;
-    calls: number;
-    successRate: number;
-  }[];
+  }>;
+  peakHours: Array<HourlyAnalysis>;
 }
 
 const timeRanges = [
   { label: 'Last 7 Days', value: '7d' },
   { label: 'Last 30 Days', value: '30d' },
   { label: 'Last 90 Days', value: '90d' },
-] as const;
+  { label: 'All Time', value: 'all' },
+];
 
-const OverviewMetrics: React.FC<{ data: AnalyticsType & Partial<TrendData> }> = ({ data }) => {
+interface OverviewMetricsProps {
+  data: AnalyticsType;
+}
+
+const OverviewMetrics: React.FC<OverviewMetricsProps> = ({ data }) => {
   const successRate = data.callDistribution?.find(d => d.name === 'Successful')?.value || 0;
   const totalCalls = data.numberOfCalls || 0;
   const avgDuration = (data.totalCallMinutes / (totalCalls || 1)).toFixed(1);
@@ -131,10 +123,10 @@ const OverviewMetrics: React.FC<{ data: AnalyticsType & Partial<TrendData> }> = 
             <div className="rounded-full bg-blue-100 p-3">
               <Phone className="h-6 w-6 text-blue-600" />
             </div>
-            {data.numberOfCallsTrend !== undefined && (
-              <div className={`flex items-center gap-1 text-sm ${data.numberOfCallsTrend < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                <span>{data.numberOfCallsTrend.toFixed(1)}%</span>
-                {data.numberOfCallsTrend < 0 ? (
+            {data.numberOfCalls !== undefined && (
+              <div className={`flex items-center gap-1 text-sm ${data.numberOfCalls < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <span>{data.numberOfCalls.toFixed(1)}%</span>
+                {data.numberOfCalls < 0 ? (
                   <TrendingDown className="h-4 w-4" />
                 ) : (
                   <TrendingUp className="h-4 w-4" />
@@ -203,10 +195,10 @@ const OverviewMetrics: React.FC<{ data: AnalyticsType & Partial<TrendData> }> = 
             <div className="rounded-full bg-amber-100 p-3">
               <Clock className="h-6 w-6 text-amber-600" />
             </div>
-            {data.totalCallMinutesTrend !== undefined && (
-              <div className={`flex items-center gap-1 text-sm ${data.totalCallMinutesTrend < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                <span>{data.totalCallMinutesTrend.toFixed(1)}%</span>
-                {data.totalCallMinutesTrend < 0 ? (
+            {data.totalCallMinutes !== undefined && (
+              <div className={`flex items-center gap-1 text-sm ${data.totalCallMinutes < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <span>{data.totalCallMinutes.toFixed(1)}%</span>
+                {data.totalCallMinutes < 0 ? (
                   <TrendingDown className="h-4 w-4" />
                 ) : (
                   <TrendingUp className="h-4 w-4" />
@@ -262,7 +254,11 @@ const OverviewMetrics: React.FC<{ data: AnalyticsType & Partial<TrendData> }> = 
   );
 };
 
-const PerformanceTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
+interface PerformanceTabProps {
+  data: AnalyticsType;
+}
+
+const PerformanceTab: React.FC<PerformanceTabProps> = ({ data }) => {
   // Create sample data if no data is available
   const sampleData = Array.from({ length: 7 }, (_, i) => ({
     date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString(),
@@ -312,62 +308,89 @@ const PerformanceTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
       </Card>
 
       <Grid numItems={1} numItemsSm={2} className="gap-6">
-      <Card className="mt-6">
-        <Title>Peak Hours Analysis</Title>
-        <div className="mt-4">
-          {data.peakHours.map((peak, index) => (
-            <div key={peak.hour} className="mb-4">
-              <div className="flex justify-between items-center">
-                <Text>{`${peak.hour}:00 - ${peak.hour + 1}:00`}</Text>
-                <Badge color="blue">{peak.calls} calls</Badge>
-              </div>
-              <div className="mt-2">
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                  <div
-                    className="h-full bg-blue-500 rounded-full"
-                    style={{ width: `${(peak.calls / Math.max(...data.peakHours.map(p => p.calls))) * 100}%` }}
-                  />
+      <motion.div 
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: "spring", stiffness: 300 }}
+      >
+        <Card 
+          className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
+          decoration="top"
+          decorationColor="blue"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Title className="text-gray-800 font-semibold flex items-center gap-2">
+              <Clock className="w-5 h-5 text-blue-500" />
+              Peak Hours Analysis
+            </Title>
+          </div>
+          <div className="mt-4">
+            {data.peakHours?.map((peak, index) => (
+              <div key={peak.hour} className="mb-4">
+                <div className="flex justify-between items-center">
+                  <Text>{`${peak.hour}:00 - ${peak.hour + 1}:00`}</Text>
+                  <Badge color="blue">{peak.calls} calls</Badge>
                 </div>
-                <Text className="text-sm text-gray-500 mt-1">
-                  Success Rate: {peak.successRate.toFixed(1)}%
-                </Text>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-        <Card className="bg-white rounded-xl shadow-sm">
-          <Title>Cost Analysis</Title>
-          <Text className="text-gray-500">Breakdown of costs</Text>
-          <div className="space-y-4 mt-4">
-            {[
-              { category: 'Voice Calls', amount: data.totalSpent * 0.7 },
-              { category: 'AI Processing', amount: data.totalSpent * 0.2 },
-              { category: 'Other Services', amount: data.totalSpent * 0.1 },
-            ].map((item, index) => (
-              <div key={item.category}>
-                <div className="flex justify-between mb-1">
-                  <Text>{item.category}</Text>
-                  <Text className="font-medium">${item.amount.toFixed(2)}</Text>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                  <div 
-                    className={`h-full ${index % 2 === 0 ? 'bg-blue-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${(item.amount / data.totalSpent) * 100}%` }}
-                  />
+                <div className="mt-2">
+                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                    <div
+                      className="h-full bg-blue-500 rounded-full"
+                      style={{ width: `${(peak.calls / Math.max(...data.peakHours.map(p => p.calls))) * 100}%` }}
+                    />
+                  </div>
+                  <Text className="text-sm text-gray-500 mt-1">
+                    Success Rate: {peak.successRate.toFixed(1)}%
+                  </Text>
                 </div>
               </div>
             ))}
           </div>
         </Card>
+      </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Card 
+            className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-l transition-all duration-300"
+            decoration="top"
+            decorationColor="blue"
+          >
+            <Title>Cost Analysis</Title>
+            <Text className="text-gray-500">Breakdown of costs</Text>
+            <div className="space-y-4 mt-4">
+              {[
+                { category: 'Voice Calls', amount: data.totalSpent * 0.7 },
+                { category: 'AI Processing', amount: data.totalSpent * 0.2 },
+                { category: 'Other Services', amount: data.totalSpent * 0.1 },
+              ].map((item, index) => (
+                <div key={item.category}>
+                  <div className="flex justify-between mb-1">
+                    <Text>{item.category}</Text>
+                    <Text className="font-medium">${item.amount.toFixed(2)}</Text>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className={`h-full ${index % 2 === 0 ? 'bg-blue-500' : 'bg-emerald-500'}`}
+                      style={{ width: `${(item.amount / data.totalSpent) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
       </Grid>
      
     </div>
   );
 };
 
-const DistributionTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
+interface DistributionTabProps {
+  data: AnalyticsType;
+}
+
+const DistributionTab: React.FC<DistributionTabProps> = ({ data }) => {
   const donutData = data.callDistribution.map(item => ({
     name: item.name,
     value: item.value,
@@ -375,74 +398,103 @@ const DistributionTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
 
   return (
     <Grid numItems={1} numItemsSm={2} className="gap-6">
-      <Card className="transform transition-all duration-300 hover:shadow-lg">
-        <Title>Call Status Distribution</Title>
-        <Text className="text-gray-500">Breakdown of call outcomes</Text>
-        <DonutChart
-          className="h-80 mt-4"
-          data={donutData}
-          category="value"
-          index="name"
-          colors={["emerald", "red", "amber"]}
-          valueFormatter={(value) => `${value.toLocaleString()} calls`}
-          showAnimation
-        />
-      </Card>
+      <motion.div 
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: "spring", stiffness: 300 }}
+        className="col-span-2"
+      >
+        <Card 
+          className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
+          decoration="top"
+          decorationColor="blue"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Title className="text-gray-800 font-semibold flex items-center gap-2">
+              <PieChartIcon className="w-5 h-5 text-blue-500" />
+              Call Status Distribution
+            </Title>
+          </div>
+          <div className="mt-4">
+            <DonutChart
+              className="h-80"
+              data={donutData}
+              category="value"
+              index="name"
+              colors={["emerald", "red", "amber"]}
+              valueFormatter={(value) => `${value.toLocaleString()} calls`}
+              showAnimation
+            />
+          </div>
+        </Card>
+      </motion.div>
 
-      <Card className="transform transition-all duration-300 hover:shadow-lg">
-        <Title>Key Metrics</Title>
-        <div className="mt-4 space-y-6">
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Text>Success Rate</Text>
-              <Badge color="emerald">
-                {data.callDistribution.find(d => d.name === 'Successful')?.value || 0}%
-              </Badge>
+      <motion.div 
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: "spring", stiffness: 300 }}
+      >
+        <Card 
+          className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
+          decoration="top"
+          decorationColor="blue"
+        >
+          <Title>Key Metrics</Title>
+          <div className="mt-4 space-y-6">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Text>Success Rate</Text>
+                <Badge color="emerald">
+                  {data.callDistribution.find(d => d.name === 'Successful')?.value || 0}%
+                </Badge>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500"
+                  style={{ width: `${data.callDistribution.find(d => d.name === 'Successful')?.value || 0}%` }}
+                />
+              </div>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="h-full bg-emerald-500"
-                style={{ width: `${data.callDistribution.find(d => d.name === 'Successful')?.value || 0}%` }}
-              />
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Text>Average Cost per Call</Text>
+                <Badge color="blue">
+                  ${data.totalSpent / data.numberOfCalls}
+                </Badge>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="h-full bg-blue-500"
+                  style={{ width: `${(data.totalSpent / data.numberOfCalls / 2) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Text>Average Duration</Text>
+                <Badge color="amber">
+                  {Math.round(data.totalCallMinutes / data.numberOfCalls)} min
+                </Badge>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="h-full bg-amber-500"
+                  style={{ width: `${(data.totalCallMinutes / data.numberOfCalls / 10) * 100}%` }}
+                />
+              </div>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Text>Average Cost per Call</Text>
-              <Badge color="blue">
-                ${data.totalSpent / data.numberOfCalls}
-              </Badge>
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="h-full bg-blue-500"
-                style={{ width: `${(data.totalSpent / data.numberOfCalls / 2) * 100}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Text>Average Duration</Text>
-              <Badge color="amber">
-                {Math.round(data.totalCallMinutes / data.numberOfCalls)} min
-              </Badge>
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="h-full bg-amber-500"
-                style={{ width: `${(data.totalCallMinutes / data.numberOfCalls / 10) * 100}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      </motion.div>
     </Grid>
   );
 };
 
-const QualityTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
+interface QualityTabProps {
+  data: AnalyticsType;
+}
+
+const QualityTab: React.FC<QualityTabProps> = ({ data }) => {
   // Calculate quality metrics
   const avgDuration = data.totalCallMinutes / data.numberOfCalls;
   const costEfficiency = data.totalSpent / data.numberOfCalls;
@@ -457,93 +509,118 @@ const QualityTab: React.FC<{ data: AnalyticsType }> = ({ data }) => {
 
   return (
     <div className="space-y-6">
-      <Card className="transform transition-all duration-300 hover:shadow-lg">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <Title>Quality Score</Title>
-            <Text className="text-gray-500">Combined performance metric</Text>
+      <motion.div 
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: "spring", stiffness: 300 }}
+      >
+        <Card 
+          className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-lg transition-all duration-300"
+          decoration="top"
+          decorationColor="blue"
+        >
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <Title>Quality Score</Title>
+              <Text className="text-gray-500">Combined performance metric</Text>
+            </div>
+            <div className="text-right">
+              <Metric>{Math.round(qualityScore)}%</Metric>
+              <Badge color={qualityScore >= 75 ? "emerald" : qualityScore >= 50 ? "amber" : "red"}>
+                {qualityScore >= 75 ? "Excellent" : qualityScore >= 50 ? "Good" : "Needs Improvement"}
+              </Badge>
+            </div>
           </div>
-          <div className="text-right">
-            <Metric>{Math.round(qualityScore)}%</Metric>
-            <Badge color={qualityScore >= 75 ? "emerald" : qualityScore >= 50 ? "amber" : "red"}>
-              {qualityScore >= 75 ? "Excellent" : qualityScore >= 50 ? "Good" : "Needs Improvement"}
-            </Badge>
+          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+            <div 
+              className={`h-full ${
+                qualityScore >= 75 ? 'bg-emerald-500' : 
+                qualityScore >= 50 ? 'bg-amber-500' : 
+                'bg-red-500'
+              }`}
+              style={{ width: `${qualityScore}%` }}
+            />
           </div>
-        </div>
-        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-          <div 
-            className={`h-full ${
-              qualityScore >= 75 ? 'bg-emerald-500' : 
-              qualityScore >= 50 ? 'bg-amber-500' : 
-              'bg-red-500'
-            }`}
-            style={{ width: `${qualityScore}%` }}
-          />
-        </div>
-      </Card>
+        </Card>
+      </motion.div>
 
       <Grid numItems={1} numItemsSm={3} className="gap-6">
-        <Card className="transform transition-all duration-300 hover:shadow-lg">
-          <div className="flex flex-col items-center">
-            <div className="p-4 bg-emerald-100 rounded-full mb-4">
-              <CheckCircle className="h-8 w-8 text-emerald-600" />
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Card 
+            className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
+            decoration="top"
+            decorationColor="blue"
+          >
+            <div className="flex flex-col items-center">
+              <div className="p-4 bg-emerald-100 rounded-full mb-4">
+                <CheckCircle className="h-8 w-8 text-emerald-600" />
+              </div>
+              <Title>Success Rate</Title>
+              <Text className="font-medium mt-2">{successRate}%</Text>
+              <Text className="text-gray-500 text-center mt-2">
+                Of all calls completed successfully
+              </Text>
             </div>
-            <Title>Success Rate</Title>
-            <Text className="font-medium mt-2">{successRate}%</Text>
-            <Text className="text-gray-500 text-center mt-2">
-              Of all calls completed successfully
-            </Text>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
 
-        <Card className="transform transition-all duration-300 hover:shadow-lg">
-          <div className="flex flex-col items-center">
-            <div className="p-4 bg-blue-100 rounded-full mb-4">
-              <DollarSign className="h-8 w-8 text-blue-600" />
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Card 
+            className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
+            decoration="top"
+            decorationColor="blue"
+          >
+            <div className="flex flex-col items-center">
+              <div className="p-4 bg-blue-100 rounded-full mb-4">
+                <DollarSign className="h-8 w-8 text-blue-600" />
+              </div>
+              <Title>Cost Efficiency</Title>
+              <Text className="font-medium mt-2">${costEfficiency.toFixed(2)}</Text>
+              <Text className="text-gray-500 text-center mt-2">
+                Average cost per call
+              </Text>
             </div>
-            <Title>Cost Efficiency</Title>
-            <Text className="font-medium mt-2">${costEfficiency.toFixed(2)}</Text>
-            <Text className="text-gray-500 text-center mt-2">
-              Average cost per call
-            </Text>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
 
-        <Card className="transform transition-all duration-300 hover:shadow-lg">
-          <div className="flex flex-col items-center">
-            <div className="p-4 bg-amber-100 rounded-full mb-4">
-              <Clock className="h-8 w-8 text-amber-600" />
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Card 
+            className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
+            decoration="top"
+            decorationColor="blue"
+          >
+            <div className="flex flex-col items-center">
+              <div className="p-4 bg-amber-100 rounded-full mb-4">
+                <Clock className="h-8 w-8 text-amber-600" />
+              </div>
+              <Title>Avg Duration</Title>
+              <Text className="font-medium mt-2">{Math.round(avgDuration)} min</Text>
+              <Text className="text-gray-500 text-center mt-2">
+                Average call duration
+              </Text>
             </div>
-            <Title>Avg Duration</Title>
-            <Text className="font-medium mt-2">{Math.round(avgDuration)} min</Text>
-            <Text className="text-gray-500 text-center mt-2">
-              Average call duration
-            </Text>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
       </Grid>
     </div>
   );
 };
 
 const Analytics: React.FC = () => {
+  const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<string>('7d');
-  const [callData, setCallData] = useState<CallData[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsType>({
-    numberOfCalls: 0,
-    totalCallMinutes: 0,
-    totalSpent: 0,
-    callDistribution: [],
-    callHistory: [],
-    costBreakdown: [],
-    qualityMetrics: [],
-    peakHours: []
-  });
+  const [data, setData] = useState<AnalyticsType | null>(null);
 
   useEffect(() => {
-    const fetchCallData = async () => {
+    const fetchAnalytics = async () => {
       try {
         setIsLoading(true);
         const apiKey = import.meta.env.VITE_VAPI_API_KEY;
@@ -647,19 +724,15 @@ const Analytics: React.FC = () => {
           peakHours
         };
 
-        setCallData(calls);
-        setAnalyticsData(transformedData);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch call data');
-        console.error('Error fetching call data:', err);
-      } finally {
+        setData(transformedData);
         setIsLoading(false);
+      } catch (err) {
+        console.error('Error fetching analytics:', err);
       }
     };
 
-    fetchCallData();
-  }, [timeRange]);
+    fetchAnalytics();
+  }, [selectedTimeRange]);
 
   const refreshData = async () => {
     setIsLoading(true);
@@ -765,30 +838,27 @@ const Analytics: React.FC = () => {
         peakHours
       };
 
-      setCallData(calls);
-      setAnalyticsData(transformedData);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch call data');
-      console.error('Error fetching call data:', err);
-    } finally {
+      setData(transformedData);
       setIsLoading(false);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
     }
   };
 
-  if (isLoading) return <LoadingSpinner />;
-  if (!analyticsData) return null;
+  if (isLoading || !data) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="p-6 space-y-8 max-w-[1600px] mx-auto"
+      className="p-6 max-w-7xl mx-auto"
     >
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="space-y-2">
+          <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
               Analytics Dashboard
             </h1>
@@ -799,8 +869,8 @@ const Analytics: React.FC = () => {
           
           <div className="flex items-center gap-4">
             <Select
-              value={timeRange}
-              onValueChange={setTimeRange}
+              value={selectedTimeRange}
+              onValueChange={setSelectedTimeRange}
               className="min-w-[180px]"
             >
               {timeRanges.map((range, index) => (
@@ -832,23 +902,38 @@ const Analytics: React.FC = () => {
         </div>
       </div>
 
-      <OverviewMetrics data={analyticsData} />
+      <OverviewMetrics data={data} />
 
       <TabGroup>
-        <TabList className="mb-8">
-          <Tab icon={BarChartIcon}>Performance</Tab>
-          <Tab icon={PieChartIcon}>Distribution</Tab>
-          <Tab icon={ActivityIcon}>Quality</Tab>
+        <TabList className="mt-8 flex space-x-2 bg-white p-1 rounded-xl shadow-sm border border-gray-200">
+          <Tab 
+            className="w-full py-3 px-4 text-sm font-medium rounded-lg focus:outline-none transition-all duration-200 ui-selected:bg-blue-500 ui-selected:text-white ui-not-selected:bg-white ui-not-selected:text-gray-600 hover:bg-blue-50 ui-not-selected:hover:text-blue-500 flex items-center justify-center gap-2"
+          >
+            <TrendingUp className="w-5 h-5" />
+            Performance
+          </Tab>
+          <Tab 
+            className="w-full py-3 px-4 text-sm font-medium rounded-lg focus:outline-none transition-all duration-200 ui-selected:bg-blue-500 ui-selected:text-white ui-not-selected:bg-white ui-not-selected:text-gray-600 hover:bg-blue-50 ui-not-selected:hover:text-blue-500 flex items-center justify-center gap-2"
+          >
+            <PieChartIcon className="w-5 h-5" />
+            Distribution
+          </Tab>
+          <Tab 
+            className="w-full py-3 px-4 text-sm font-medium rounded-lg focus:outline-none transition-all duration-200 ui-selected:bg-blue-500 ui-selected:text-white ui-not-selected:bg-white ui-not-selected:text-gray-600 hover:bg-blue-50 ui-not-selected:hover:text-blue-500 flex items-center justify-center gap-2"
+          >
+            <ActivityIcon className="w-5 h-5" />
+            Quality
+          </Tab>
         </TabList>
         <TabPanels>
           <TabPanel>
-            <PerformanceTab data={analyticsData} />
+            <PerformanceTab data={data} />
           </TabPanel>
           <TabPanel>
-            <DistributionTab data={analyticsData} />
+            <DistributionTab data={data} />
           </TabPanel>
           <TabPanel>
-            <QualityTab data={analyticsData} />
+            <QualityTab data={data} />
           </TabPanel>
         </TabPanels>
       </TabGroup>
