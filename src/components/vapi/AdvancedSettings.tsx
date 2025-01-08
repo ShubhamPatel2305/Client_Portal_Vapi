@@ -1,7 +1,7 @@
 import React, { FC, useState, useEffect } from 'react';
-import { Card, TextInput } from '@tremor/react';
+import { Card, TextInput, Select, SelectItem } from '@tremor/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Info, Clock, Zap, Video, MessageSquare, Timer, Shield, Lock } from 'lucide-react';
+import { Mic, Info, Clock, Zap, Video, MessageSquare, Timer, Shield, Lock, Phone } from 'lucide-react';
 
 interface AdvancedSettingsProps {
   config: {
@@ -9,13 +9,17 @@ interface AdvancedSettingsProps {
     voicemailMessage: string;
     endCallMessage: string;
     recordingEnabled: boolean;
-    videoRecordingEnabled: boolean;
     silenceTimeoutSeconds: number;
     maxDurationSeconds: number;
-    waitSeconds: number;
-    smartEndpointingEnabled: boolean;
+    artifactPlan: {
+      videoRecordingEnabled: boolean;
+    };
+    startSpeakingPlan: {
+      waitSeconds: number;
+      smartEndpointingEnabled: boolean;
+    };
   };
-  onConfigChange: (key: string, value: any) => void;
+  onConfigChange: (path: string, value: any) => void;
 }
 
 export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigChange }) => {
@@ -83,7 +87,7 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
     if (value) {
       // When turning on HIPAA, force disable recording features
       onConfigChange('recordingEnabled', false);
-      onConfigChange('videoRecordingEnabled', false);
+      onConfigChange('artifactPlan.videoRecordingEnabled', false);
     }
     onConfigChange('hipaaEnabled', value);
   };
@@ -300,7 +304,7 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                         onChange={(e) => handleHipaaToggle(e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
                 </motion.div>
@@ -309,7 +313,7 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                 <motion.div
                   className={`p-6 rounded-xl border transition-all duration-300 ${
                     !config.hipaaEnabled 
-                      ? config.videoRecordingEnabled 
+                      ? config.artifactPlan.videoRecordingEnabled 
                         ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-100' 
                         : 'bg-white border-gray-200'
                       : 'bg-gray-50 border-gray-200 opacity-75 cursor-not-allowed'
@@ -318,11 +322,11 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${config.videoRecordingEnabled && !config.hipaaEnabled ? 'bg-purple-100' : 'bg-gray-100'}`}>
+                      <div className={`p-2 rounded-lg ${config.artifactPlan.videoRecordingEnabled && !config.hipaaEnabled ? 'bg-purple-100' : 'bg-gray-100'}`}>
                         {config.hipaaEnabled ? (
                           <Lock className="h-5 w-5 text-gray-400" />
                         ) : (
-                          <Video className={`h-5 w-5 ${config.videoRecordingEnabled ? 'text-purple-600' : 'text-gray-600'}`} />
+                          <Video className={`h-5 w-5 ${config.artifactPlan.videoRecordingEnabled ? 'text-purple-600' : 'text-gray-600'}`} />
                         )}
                       </div>
                       <div>
@@ -338,8 +342,8 @@ export const AdvancedSettings: FC<AdvancedSettingsProps> = ({ config, onConfigCh
                     <label className={`relative inline-flex items-center ${config.hipaaEnabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                       <input
                         type="checkbox"
-                        checked={config.videoRecordingEnabled}
-                        onChange={(e) => handleRecordingToggle('videoRecordingEnabled', e.target.checked)}
+                        checked={config.artifactPlan.videoRecordingEnabled}
+                        onChange={(e) => handleRecordingToggle('artifactPlan.videoRecordingEnabled', e.target.checked)}
                         disabled={config.hipaaEnabled}
                         className="sr-only peer"
                       />

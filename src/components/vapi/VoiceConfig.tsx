@@ -27,11 +27,17 @@ const providers = [
 
 const voices = {
   '11labs': [
-    'francotest', 'Louis', 'test3', 'franco.2', 'test', 'belal batrawy',
-    'Chris male', 'test2', 'test', 'f1', 'test', 'Bobby.Test8', 'Testinggg',
-    'Luca Brasi Gentile', 'Paul', 'HARMONY', 'Andrei male', 'Cicek',
-    'Jarpa Test - Francisco', 'Kanika', 'Janvi', 'HMIDA'
-  ].map(name => ({ id: name, name })),
+    { id: 'francotest', name: 'Franco Test' },
+    { id: 'louis', name: 'Louis' },
+    { id: 'franco2', name: 'Franco 2' },
+    { id: 'chris_male', name: 'Chris Male' },
+    { id: 'belal', name: 'Belal Batrawy' },
+    { id: 'harmony', name: 'Harmony' },
+    { id: 'andrei', name: 'Andrei' },
+    { id: 'cicek', name: 'Cicek' },
+    { id: 'kanika', name: 'Kanika' },
+    { id: 'janvi', name: 'Janvi' }
+  ],
 };
 
 const backgroundSounds = [
@@ -100,22 +106,28 @@ const VoiceConfig: React.FC = () => {
   }, []);
 
   const handleConfigChange = async (key: string, value: any) => {
-    // Optimistically update the UI
-    const updatedData = {
-      ...vapiData,
-      voice: { ...vapiData.voice },
-    };
-    
+    // Create a payload with only the changed field
     const keys = key.split('.');
-    let current: any = updatedData;
+    const payload: any = {};
+    let current = payload;
+    
     for (let i = 0; i < keys.length - 1; i++) {
+      current[keys[i]] = {};
       current = current[keys[i]];
     }
     current[keys[keys.length - 1]] = value;
-    setVapiData(updatedData);
+
+    // Optimistically update the UI
+    setVapiData(prev => ({
+      ...prev,
+      voice: {
+        ...prev.voice,
+        [keys[keys.length - 1]]: value
+      }
+    }));
 
     try {
-      await axios.patch(`https://api.vapi.ai/assistant/${assistantId}`, updatedData, {
+      await axios.patch(`https://api.vapi.ai/assistant/${assistantId}`, payload, {
         headers: {
           'Authorization': `Bearer ${VAPI_API_KEY}`,
           'Content-Type': 'application/json',
@@ -124,8 +136,7 @@ const VoiceConfig: React.FC = () => {
       setError(null);
     } catch (err) {
       console.error('Error updating configuration:', err);
-      // Don't revert the UI state, just show the error
-      setError('Changes may not have been saved. The interface will continue to work.');
+      setError('Failed to save changes. Please try again.');
     }
   };
 

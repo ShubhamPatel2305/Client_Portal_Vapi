@@ -98,7 +98,7 @@ interface OverviewMetricsProps {
 }
 
 const OverviewMetrics: React.FC<OverviewMetricsProps> = ({ data }) => {
-  const successRate = data.callDistribution?.find(d => d.name === 'Successful')?.value || 0;
+  const successRate = ((data.callDistribution.find(d => d.name === 'Successful')?.value || 0) / data.numberOfCalls * 100).toFixed(1);
   const totalCalls = data.numberOfCalls || 0;
   const avgDuration = (data.totalCallMinutes / (totalCalls || 1)).toFixed(1);
   const avgCostPerMinute = data.totalCallMinutes > 0 ? (data.totalSpent / data.totalCallMinutes) : 0;
@@ -173,7 +173,7 @@ const OverviewMetrics: React.FC<OverviewMetricsProps> = ({ data }) => {
           <div className="mt-4">
             <Text className="text-gray-600">Success Rate</Text>
             <Title className="text-3xl font-bold text-gray-900">
-              {successRate.toFixed(1)}%
+              {successRate}%
             </Title>
           </div>
         </Card>
@@ -259,40 +259,32 @@ interface PerformanceTabProps {
 }
 
 const PerformanceTab: React.FC<PerformanceTabProps> = ({ data }) => {
-  // Create sample data if no data is available
-  const sampleData = Array.from({ length: 7 }, (_, i) => ({
-    date: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString(),
-    calls: Math.floor(Math.random() * 4),
-    cost: Math.random() * 2,
-  }));
+  const processCallHistory = (history: typeof data.callHistory) => {
+    if (!history?.length) return [];
+    return history.map(item => ({
+      date: format(new Date(item.date), 'MMM d'),
+      Calls: item.calls || 0,
+      Cost: parseFloat((item.cost || 0).toFixed(2)),
+      "Avg Duration": item.minutes ? (item.minutes / item.calls).toFixed(1) : "0"
+    }));
+  };
 
-  const monthlyTrend = data.callHistory?.length > 0 ? data.callHistory : sampleData;
-
-  const chartData = monthlyTrend.map(item => ({
-    date: format(new Date(item.date), 'MMM d'),
-    Calls: item.calls || 0,
-    Cost: parseFloat((item.cost || 0).toFixed(2)),
-    "Avg Duration": item.calls > 0 ? Math.round((item.cost || 0) / item.calls) : 0,
-  }));
-
-  // Generate hourly distribution
-  const hourlyData = Array.from({ length: 24 }, (_, hour) => ({
-    hour: `${hour.toString().padStart(2, '0')}:00`,
-    calls: Math.floor(Math.random() * 3), // Sample data for visualization
-  }));
-
-  
+  const chartData = processCallHistory(data.callHistory);
+  const isGrowing = chartData.length >= 2 && 
+    chartData[chartData.length - 1].Calls > chartData[chartData.length - 2].Calls;
 
   return (
     <div className="space-y-6">
-      <Card className="bg-white rounded-xl shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+      <Card className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <Title>Call Performance Trends</Title>
-            <Text className="text-gray-500">Daily call metrics over time</Text>
+            <Title className="text-xl font-bold text-gray-900">Call Performance Trends</Title>
+            <Text className="text-gray-600">Daily call metrics and performance analysis</Text>
           </div>
-          <Badge color="blue" icon={TrendingUp}>
-            Growing
+          <Badge color={isGrowing ? "emerald" : "blue"} 
+                icon={TrendingUp}
+                className="px-3 py-1 text-sm">
+            {isGrowing ? 'Growing' : 'Stable'}
           </Badge>
         </div>
         <AreaChart
@@ -301,87 +293,135 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ data }) => {
           index="date"
           categories={["Calls", "Cost", "Avg Duration"]}
           colors={["blue", "emerald", "amber"]}
-          valueFormatter={(value) => `${value.toLocaleString()}`}
+          valueFormatter={(value, category) => {
+            if (category === "Cost") return `$${Number(value).toFixed(2)}`;
+            if (category === "Avg Duration") return `${value} min`;
+            return Number(value).toLocaleString();
+          }}
           showLegend
           showGridLines
+          minValue={0}
+          yAxisWidth={65}
+          showAnimation={true}
         />
       </Card>
 
       <Grid numItems={1} numItemsSm={2} className="gap-6">
-      <motion.div 
-        whileHover={{ scale: 1.02 }}
-        transition={{ type: "spring", stiffness: 300 }}
-      >
-        <Card 
-          className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
-          decoration="top"
-          decorationColor="blue"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <Title className="text-gray-800 font-semibold flex items-center gap-2">
-              <Clock className="w-5 h-5 text-blue-500" />
-              Peak Hours Analysis
-            </Title>
-          </div>
-          <div className="mt-4">
-            {data.peakHours?.map((peak, index) => (
-              <div key={peak.hour} className="mb-4">
-                <div className="flex justify-between items-center">
-                  <Text>{`${peak.hour}:00 - ${peak.hour + 1}:00`}</Text>
-                  <Badge color="blue">{peak.calls} calls</Badge>
-                </div>
-                <div className="mt-2">
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
-                    <div
-                      className="h-full bg-blue-500 rounded-full"
-                      style={{ width: `${(peak.calls / Math.max(...data.peakHours.map(p => p.calls))) * 100}%` }}
-                    />
-                  </div>
-                  <Text className="text-sm text-gray-500 mt-1">
-                    Success Rate: {peak.successRate.toFixed(1)}%
-                  </Text>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </motion.div>
-
         <motion.div 
           whileHover={{ scale: 1.02 }}
           transition={{ type: "spring", stiffness: 300 }}
         >
           <Card 
-            className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-l transition-all duration-300"
+            className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300"
             decoration="top"
             decorationColor="blue"
           >
-            <Title>Cost Analysis</Title>
-            <Text className="text-gray-500">Breakdown of costs</Text>
-            <div className="space-y-4 mt-4">
-              {[
-                { category: 'Voice Calls', amount: data.totalSpent * 0.7 },
-                { category: 'AI Processing', amount: data.totalSpent * 0.2 },
-                { category: 'Other Services', amount: data.totalSpent * 0.1 },
-              ].map((item, index) => (
-                <div key={item.category}>
-                  <div className="flex justify-between mb-1">
-                    <Text>{item.category}</Text>
-                    <Text className="font-medium">${item.amount.toFixed(2)}</Text>
+            <div className="flex items-center justify-between mb-6">
+              <Title className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-blue-500" />
+                Peak Hours Analysis
+              </Title>
+              <Text className="text-sm text-gray-500">
+                Based on call volume
+              </Text>
+            </div>
+            <div className="mt-4 max-h-[350px] overflow-y-auto pr-2 space-y-4">
+              {data.peakHours?.map((peak) => (
+                <div key={peak.hour} 
+                     className="p-4 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors duration-300">
+                  <div className="flex justify-between items-center mb-3">
+                    <Text className="font-medium text-gray-900">
+                      {`${peak.hour.toString().padStart(2, '0')}:00 - ${(peak.hour + 1).toString().padStart(2, '0')}:00`}
+                    </Text>
+                    <div className="flex gap-2">
+                      <Badge size="xs" color="blue">
+                        {peak.calls} calls
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className={`h-full ${index % 2 === 0 ? 'bg-blue-500' : 'bg-emerald-500'}`}
-                      style={{ width: `${(item.amount / data.totalSpent) * 100}%` }}
-                    />
+                  <div className="space-y-3">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                        style={{ 
+                          width: `${(peak.calls / Math.max(...data.peakHours.map(p => p.calls))) * 100}%`,
+                          boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <Text className="text-gray-600">Success Rate</Text>
+                      <Text className={`font-medium ${
+                        peak.successRate >= 80 ? 'text-green-600' :
+                        peak.successRate >= 50 ? 'text-yellow-600' :
+                        'text-red-600'
+                      }`}>
+                        {peak.successRate.toFixed(1)}%
+                      </Text>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </Card>
         </motion.div>
+
+        <motion.div 
+          whileHover={{ scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          <Card 
+            className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300"
+            decoration="top"
+            decorationColor="emerald"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <Title className="text-lg font-bold text-gray-900">Cost Analysis</Title>
+              <Text className="text-sm text-gray-500">
+                Service breakdown
+              </Text>
+            </div>
+            <div className="space-y-5 mt-4">
+              {[
+                { category: 'Voice Calls', amount: data.totalSpent * 0.7, color: 'bg-emerald-500' },
+                { category: 'AI Processing', amount: data.totalSpent * 0.2, color: 'bg-blue-500' },
+                { category: 'Other Services', amount: data.totalSpent * 0.1, color: 'bg-amber-500' }
+              ].map((item) => (
+                <div key={item.category} className="p-4 bg-gray-50 rounded-lg hover:bg-emerald-50 transition-colors duration-300">
+                  <div className="flex justify-between items-center mb-2">
+                    <Text className="font-medium text-gray-900">{item.category}</Text>
+                    <div className="flex items-center gap-2">
+                      <Badge size="xs" color="emerald">
+                        ${item.amount.toFixed(2)}
+                      </Badge>
+                      <Text className="text-sm text-gray-500">
+                        {((item.amount / data.totalSpent) * 100).toFixed(1)}%
+                      </Text>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className={`h-full ${item.color} transition-all duration-500`}
+                      style={{ 
+                        width: `${(item.amount / data.totalSpent) * 100}%`,
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <Text className="font-bold text-gray-900">Total Spent</Text>
+                  <Text className="font-bold text-emerald-600">
+                    ${data.totalSpent.toFixed(2)}
+                  </Text>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
       </Grid>
-     
     </div>
   );
 };
@@ -391,102 +431,64 @@ interface DistributionTabProps {
 }
 
 const DistributionTab: React.FC<DistributionTabProps> = ({ data }) => {
-  const donutData = data.callDistribution.map(item => ({
-    name: item.name,
-    value: item.value,
-  }));
-
   return (
-    <Grid numItems={1} numItemsSm={2} className="gap-6">
-      <motion.div 
-        whileHover={{ scale: 1.02 }}
-        transition={{ type: "spring", stiffness: 300 }}
-        className="col-span-2"
-      >
-        <Card 
-          className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
-          decoration="top"
-          decorationColor="blue"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <Title className="text-gray-800 font-semibold flex items-center gap-2">
-              <PieChartIcon className="w-5 h-5 text-blue-500" />
-              Call Status Distribution
-            </Title>
+    <div className="space-y-6">
+      <Card className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <Title className="text-xl font-bold text-gray-900">Call Distribution</Title>
+            <Text className="text-gray-600">Overview of call outcomes</Text>
           </div>
-          <div className="mt-4">
-            <DonutChart
-              className="h-80"
-              data={donutData}
-              category="value"
-              index="name"
-              colors={["emerald", "red", "amber"]}
-              valueFormatter={(value) => `${value.toLocaleString()} calls`}
-              showAnimation
-            />
+          <Badge color="blue" size="lg">
+            {data.numberOfCalls} Total Calls
+          </Badge>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <DonutChart
+            className="h-52"
+            data={data.callDistribution}
+            category="value"
+            index="name"
+            valueFormatter={(value) => `${value} calls`}
+            colors={["emerald", "red", "amber", "blue"]}
+          />
+          <div className="space-y-4">
+            {data.callDistribution.map((item, index) => (
+              <div key={item.name} 
+                   className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-300">
+                <div className="flex justify-between items-center mb-2">
+                  <Text className="font-medium text-gray-900">{item.name}</Text>
+                  <div className="flex items-center gap-2">
+                    <Badge size="xs" 
+                           color={index === 0 ? "emerald" : 
+                                  index === 1 ? "red" : 
+                                  index === 2 ? "amber" : "blue"}>
+                      {item.value} calls
+                    </Badge>
+                    <Text className="text-sm text-gray-500">
+                      {((item.value / data.numberOfCalls) * 100).toFixed(1)}%
+                    </Text>
+                  </div>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      index === 0 ? "bg-emerald-500" :
+                      index === 1 ? "bg-red-500" :
+                      index === 2 ? "bg-amber-500" : "bg-blue-500"
+                    }`}
+                    style={{ 
+                      width: `${(item.value / data.numberOfCalls) * 100}%`,
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-        </Card>
-      </motion.div>
-
-      <motion.div 
-        whileHover={{ scale: 1.02 }}
-        transition={{ type: "spring", stiffness: 300 }}
-      >
-        <Card 
-          className="bg-white border border-gray-200 hover:border-blue-200 shadow-md hover:shadow-xl transition-all duration-300"
-          decoration="top"
-          decorationColor="blue"
-        >
-          <Title>Key Metrics</Title>
-          <div className="mt-4 space-y-6">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Text>Success Rate</Text>
-                <Badge color="emerald">
-                  {data.callDistribution.find(d => d.name === 'Successful')?.value || 0}%
-                </Badge>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="h-full bg-emerald-500"
-                  style={{ width: `${data.callDistribution.find(d => d.name === 'Successful')?.value || 0}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Text>Average Cost per Call</Text>
-                <Badge color="blue">
-                  ${data.totalSpent / data.numberOfCalls}
-                </Badge>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="h-full bg-blue-500"
-                  style={{ width: `${(data.totalSpent / data.numberOfCalls / 2) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Text>Average Duration</Text>
-                <Badge color="amber">
-                  {Math.round(data.totalCallMinutes / data.numberOfCalls)} min
-                </Badge>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="h-full bg-amber-500"
-                  style={{ width: `${(data.totalCallMinutes / data.numberOfCalls / 10) * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </Card>
-      </motion.div>
-    </Grid>
+        </div>
+      </Card>
+    </div>
   );
 };
 
@@ -498,7 +500,7 @@ const QualityTab: React.FC<QualityTabProps> = ({ data }) => {
   // Calculate quality metrics
   const avgDuration = data.totalCallMinutes / data.numberOfCalls;
   const costEfficiency = data.totalSpent / data.numberOfCalls;
-  const successRate = data.callDistribution.find(d => d.name === 'Successful')?.value || 0;
+  const successRate = ((data.callDistribution.find(d => d.name === 'Successful')?.value || 0) / data.numberOfCalls * 100);
 
   const qualityScore = Math.min(
     ((successRate / 100) * 0.4 + 
@@ -558,7 +560,7 @@ const QualityTab: React.FC<QualityTabProps> = ({ data }) => {
                 <CheckCircle className="h-8 w-8 text-emerald-600" />
               </div>
               <Title>Success Rate</Title>
-              <Text className="font-medium mt-2">{successRate}%</Text>
+              <Text className="font-medium mt-2">{successRate.toFixed(1)}%</Text>
               <Text className="text-gray-500 text-center mt-2">
                 Of all calls completed successfully
               </Text>
@@ -614,238 +616,157 @@ const QualityTab: React.FC<QualityTabProps> = ({ data }) => {
   );
 };
 
-const Analytics: React.FC = () => {
-  const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
-  const [isLoading, setIsLoading] = useState(true);
+const Analytics = () => {
+  const [selectedRange, setSelectedRange] = useState('7d');
   const [data, setData] = useState<AnalyticsType | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('performance');
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        setIsLoading(true);
-        const apiKey = import.meta.env.VITE_VAPI_API_KEY;
-        const response = await axios.get('https://api.vapi.ai/call', {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`
-          }
-        });
+  const getDateRange = (range: string): { startDate: Date; endDate: Date } => {
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    switch (range) {
+      case '7d':
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(endDate.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(endDate.getDate() - 90);
+        break;
+      default:
+        startDate.setDate(endDate.getDate() - 7);
+    }
+    
+    return { startDate, endDate };
+  };
 
-        const calls: CallData[] = response.data;
-        
-        // Calculate hourly distribution
-        const hourlyData: { [hour: number]: { total: number; successful: number } } = {};
-        
-        calls.forEach(call => {
-          const hour = new Date(call.startedAt).getHours();
-          if (!hourlyData[hour]) {
-            hourlyData[hour] = { total: 0, successful: 0 };
-          }
-          hourlyData[hour].total++;
-          
-          if (call.status === 'ended' && call.endedReason === 'customer-ended-call') {
-            hourlyData[hour].successful++;
-          }
-        });
-
-        // Transform hourly data
-        const hourlyAnalysis: HourlyAnalysis[] = Object.entries(hourlyData).map(([hour, data]) => ({
-          hour: parseInt(hour),
-          calls: data.total,
-          successRate: (data.successful / data.total) * 100
-        }));
-
-        // Find peak hours (top 3 hours with most calls)
-        const peakHours = hourlyAnalysis
-          .sort((a, b) => b.calls - a.calls)
-          .slice(0, 3);
-
-        // Transform the data for analytics
-        const transformedData: AnalyticsType = {
-          numberOfCalls: calls.length,
-          totalCallMinutes: calls.reduce((acc, call) => {
-            const duration = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
-            return acc + (duration / (1000 * 60));
-          }, 0),
-          totalSpent: calls.reduce((acc, call) => acc + call.cost, 0),
-          callDistribution: [
-            {
-              name: 'Successful',
-              value: calls.filter(call => 
-                call.status === 'ended' && 
-                call.endedReason === 'customer-ended-call'
-              ).length
-            },
-            {
-              name: 'Failed - System Error',
-              value: calls.filter(call => 
-                call.status === 'failed' || 
-                call.endedReason === 'system-error'
-              ).length
-            },
-            {
-              name: 'Failed - Customer Dropped',
-              value: calls.filter(call => 
-                call.status === 'ended' && 
-                call.endedReason === 'customer-dropped'
-              ).length
-            },
-            {
-              name: 'Failed - Other',
-              value: calls.filter(call => 
-                call.status !== 'ended' || 
-                (call.endedReason !== 'customer-ended-call' && 
-                 call.endedReason !== 'system-error' && 
-                 call.endedReason !== 'customer-dropped')
-              ).length
-            }
-          ],
-          callHistory: calls.map(call => ({
-            date: format(new Date(call.startedAt), 'yyyy-MM-dd'),
-            calls: 1,
-            minutes: (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / (1000 * 60),
-            cost: call.cost
-          })),
-          costBreakdown: [
-            { name: 'STT', value: calls.reduce((acc, call) => acc + call.costBreakdown.stt, 0) },
-            { name: 'LLM', value: calls.reduce((acc, call) => acc + call.costBreakdown.llm, 0) },
-            { name: 'TTS', value: calls.reduce((acc, call) => acc + call.costBreakdown.tts, 0) },
-            { name: 'Vapi', value: calls.reduce((acc, call) => acc + call.costBreakdown.vapi, 0) }
-          ],
-          qualityMetrics: [
-            {
-              name: 'Peak Hours',
-              value: peakHours.map(ph => `${ph.hour}:00 (${ph.calls} calls)`).join(', ')
-            },
-            {
-              name: 'Average Success Rate',
-              value: `${(hourlyAnalysis.reduce((acc, h) => acc + h.successRate, 0) / hourlyAnalysis.length).toFixed(1)}%`
-            }
-          ],
-          peakHours
-        };
-
-        setData(transformedData);
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error fetching analytics:', err);
-      }
-    };
-
-    fetchAnalytics();
-  }, [selectedTimeRange]);
+  const filterCallsByDateRange = (calls: CallData[], range: string) => {
+    const { startDate, endDate } = getDateRange(range);
+    return calls.filter(call => {
+      const callDate = new Date(call.startedAt);
+      return callDate >= startDate && callDate <= endDate;
+    });
+  };
 
   const refreshData = async () => {
-    setIsLoading(true);
     try {
-      const apiKey = import.meta.env.VITE_VAPI_API_KEY;
-      const response = await axios.get('https://api.vapi.ai/call', {
+      setLoading(true);
+      const response = await fetch('https://api.vapi.ai/call', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
+          'Authorization': `Bearer ${import.meta.env.VITE_VAPI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      const calls: CallData[] = response.data;
+      if (!response.ok) throw new Error('Failed to fetch analytics data');
+
+      const calls = await response.json();
+      const filteredCalls = filterCallsByDateRange(calls, selectedRange);
+      
+      // Process hourly analysis
+      const hourlyAnalysis = Array.from({ length: 24 }, (_, hour) => {
+        const hourCalls = filteredCalls.filter(call => new Date(call.startedAt).getHours() === hour);
+        const successfulCalls = hourCalls.filter(call => 
+          call.status === 'ended' && call.endedReason === 'customer-ended-call'
+        );
         
-      // Calculate hourly distribution
-      const hourlyData: { [hour: number]: { total: number; successful: number } } = {};
-        
-      calls.forEach(call => {
-        const hour = new Date(call.startedAt).getHours();
-        if (!hourlyData[hour]) {
-          hourlyData[hour] = { total: 0, successful: 0 };
-        }
-        hourlyData[hour].total++;
-        
-        if (call.status === 'ended' && call.endedReason === 'customer-ended-call') {
-          hourlyData[hour].successful++;
-        }
+        return {
+          hour,
+          calls: hourCalls.length,
+          successRate: hourCalls.length > 0 ? (successfulCalls.length / hourCalls.length) * 100 : 0
+        };
       });
 
-      // Transform hourly data
-      const hourlyAnalysis: HourlyAnalysis[] = Object.entries(hourlyData).map(([hour, data]) => ({
-        hour: parseInt(hour),
-        calls: data.total,
-        successRate: (data.successful / data.total) * 100
-      }));
+      // Process call history
+      const callHistory = filteredCalls.reduce((acc, call) => {
+        const date = format(new Date(call.startedAt), 'yyyy-MM-dd');
+        const existing = acc.find(item => item.date === date);
+        
+        if (existing) {
+          existing.calls += 1;
+          existing.minutes += (call.duration || 0) / 60;
+          existing.cost += call.cost || 0;
+        } else {
+          acc.push({
+            date,
+            calls: 1,
+            minutes: (call.duration || 0) / 60,
+            cost: call.cost || 0
+          });
+        }
+        
+        return acc;
+      }, [] as Array<{ date: string; calls: number; minutes: number; cost: number }>)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      // Find peak hours (top 3 hours with most calls)
-      const peakHours = hourlyAnalysis
-        .sort((a, b) => b.calls - a.calls)
-        .slice(0, 3);
-
-      // Transform the data for analytics
       const transformedData: AnalyticsType = {
-        numberOfCalls: calls.length,
-        totalCallMinutes: calls.reduce((acc, call) => {
-          const duration = new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime();
-          return acc + (duration / (1000 * 60));
-        }, 0),
-        totalSpent: calls.reduce((acc, call) => acc + call.cost, 0),
+        numberOfCalls: filteredCalls.length,
+        totalCallMinutes: filteredCalls.reduce((acc, call) => acc + ((call.duration || 0) / 60), 0),
+        totalSpent: filteredCalls.reduce((acc, call) => acc + (call.cost || 0), 0),
+        costPerMinuteTrend: undefined,
         callDistribution: [
           {
             name: 'Successful',
-            value: calls.filter(call => 
-              call.status === 'ended' && 
-              call.endedReason === 'customer-ended-call'
+            value: filteredCalls.filter(call => 
+              call.status === 'ended' && call.endedReason === 'customer-ended-call'
             ).length
           },
           {
             name: 'Failed - System Error',
-            value: calls.filter(call => 
-              call.status === 'failed' || 
-              call.endedReason === 'system-error'
+            value: filteredCalls.filter(call => 
+              call.status === 'failed' || call.endedReason === 'system-error'
             ).length
           },
           {
             name: 'Failed - Customer Dropped',
-            value: calls.filter(call => 
-              call.status === 'ended' && 
-              call.endedReason === 'customer-dropped'
+            value: filteredCalls.filter(call => 
+              call.status === 'ended' && call.endedReason === 'customer-dropped'
             ).length
           },
           {
             name: 'Failed - Other',
-            value: calls.filter(call => 
-              call.status !== 'ended' || 
-              (call.endedReason !== 'customer-ended-call' && 
-               call.endedReason !== 'system-error' && 
-               call.endedReason !== 'customer-dropped')
+            value: filteredCalls.filter(call => 
+              call.status !== 'ended' || (
+                call.endedReason !== 'customer-ended-call' && 
+                call.endedReason !== 'system-error' && 
+                call.endedReason !== 'customer-dropped'
+              )
             ).length
           }
         ],
-        callHistory: calls.map(call => ({
-          date: format(new Date(call.startedAt), 'yyyy-MM-dd'),
-          calls: 1,
-          minutes: (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / (1000 * 60),
-          cost: call.cost
-        })),
-        costBreakdown: [
-          { name: 'STT', value: calls.reduce((acc, call) => acc + call.costBreakdown.stt, 0) },
-          { name: 'LLM', value: calls.reduce((acc, call) => acc + call.costBreakdown.llm, 0) },
-          { name: 'TTS', value: calls.reduce((acc, call) => acc + call.costBreakdown.tts, 0) },
-          { name: 'Vapi', value: calls.reduce((acc, call) => acc + call.costBreakdown.vapi, 0) }
-        ],
+        callHistory,
+        peakHours: hourlyAnalysis,
         qualityMetrics: [
           {
-            name: 'Peak Hours',
-            value: peakHours.map(ph => `${ph.hour}:00 (${ph.calls} calls)`).join(', ')
+            name: 'Average Call Duration',
+            value: `${(filteredCalls.reduce((acc, call) => acc + (call.duration || 0), 0) / (filteredCalls.length * 60)).toFixed(1)} minutes`
           },
           {
-            name: 'Average Success Rate',
-            value: `${(hourlyAnalysis.reduce((acc, h) => acc + h.successRate, 0) / hourlyAnalysis.length).toFixed(1)}%`
+            name: 'Success Rate',
+            value: `${((filteredCalls.filter(call => 
+              call.status === 'ended' && call.endedReason === 'customer-ended-call'
+            ).length / filteredCalls.length) * 100).toFixed(1)}%`
           }
-        ],
-        peakHours
+        ]
       };
 
       setData(transformedData);
-      setIsLoading(false);
-    } catch (err) {
-      console.error('Error fetching analytics:', err);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (isLoading || !data) {
+  useEffect(() => {
+    refreshData();
+  }, [selectedRange]);
+
+  if (loading || !data) {
     return <LoadingSpinner />;
   }
 
@@ -869,8 +790,8 @@ const Analytics: React.FC = () => {
           
           <div className="flex items-center gap-4">
             <Select
-              value={selectedTimeRange}
-              onValueChange={setSelectedTimeRange}
+              value={selectedRange}
+              onValueChange={setSelectedRange}
               className="min-w-[180px]"
             >
               {timeRanges.map((range, index) => (
@@ -882,11 +803,11 @@ const Analytics: React.FC = () => {
             
             <Button
               onClick={refreshData}
-              disabled={isLoading}
+              disabled={loading}
               variant="secondary"
               className="bg-white hover:bg-gray-50 border border-gray-200 shadow-sm px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200"
             >
-              {isLoading ? (
+              {loading ? (
                 <>
                   <LoadingSpinner size={16} />
                   <span>Refreshing...</span>

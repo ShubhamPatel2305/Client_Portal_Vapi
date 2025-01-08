@@ -6,20 +6,20 @@ import { Mic, Settings, Sliders, Volume2, Info, Globe } from 'lucide-react';
 interface TranscriberConfigProps {
   config: {
     transcriber: {
-      provider: string;
       language: string;
-      model: string;
-      enhancedFiltering: boolean;
+      provider: string;
+      model?: string;
     };
   };
-  onConfigChange: (key: string, value: any, options?: { skipMetricsUpdate: boolean }) => void;
+  onConfigChange: (path: string, value: any) => void;
 }
 
 const providers = [
-  // { value: 'talkscript', label: 'Talkscript', description: 'Advanced speech recognition' },
-  // { value: 'gladia', label: 'Gladia', description: 'High-performance transcription' },
-  // { value: 'assembly-ai', label: 'Assembly AI', description: 'AI-powered transcription' },
-  { value: 'deepgram', label: 'Deepgram', description: 'Deepgram' }
+  { value: 'deepgram', label: 'Deepgram', description: 'High-accuracy transcription' },
+  { value: 'talkscriber', label: 'Talkscriber', description: 'Real-time transcription' },
+  { value: 'gladia', label: 'Gladia', description: 'Advanced speech recognition' },
+  { value: 'assembly-ai', label: 'Assembly AI', description: 'AI-powered transcription' },
+  { value: 'azure', label: 'Azure', description: 'Microsoft Azure transcription' }
 ];
 
 const languages = [
@@ -201,31 +201,7 @@ const TranscriberConfig: React.FC<TranscriberConfigProps> = ({ config, onConfigC
               </div>
             </div>
 
-            <motion.div
-              variants={itemVariants}
-              className="mt-8 p-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100/50"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-2 bg-indigo-100 rounded-lg">
-                    <Settings className="h-5 w-5 text-indigo-600" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-medium text-gray-800">Enhanced Filtering</h4>
-                    <p className="text-xs text-gray-500">Improve transcription accuracy</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={config.transcriber.enhancedFiltering}
-                    onChange={(e) => onConfigChange('transcriber.enhancedFiltering', e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-            </motion.div>
+            
           </motion.div>
         </div>
       </Card>

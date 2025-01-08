@@ -268,11 +268,11 @@ export const fetchAnalytics = async (timeRange: string) => {
 };
 
 const vapiAxios = axios.create({
-  baseURL: VAPI_BASE_URL,
+  baseURL: 'https://api.vapi.ai',
   headers: {
     'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 });
 
 const client = new VapiClient({ token: VAPI_API_KEY });
@@ -351,9 +351,19 @@ export const vapiService = {
   },
 
   // Update assistant configuration
-  updateAssistant: async (assistantId: string, data: any) => {
-    const response = await vapiAxios.patch(`/assistant/${assistantId}`, data);
-    return response.data;
+  async updateAssistant(assistantId: string, data: any) {
+    try {
+      const response = await vapiAxios.patch(`/assistant/${assistantId}`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error in updateAssistant:', error);
+      if (error.response?.data?.message) {
+        throw new Error(Array.isArray(error.response.data.message) 
+          ? error.response.data.message.join(', ') 
+          : error.response.data.message);
+      }
+      throw error;
+    }
   },
 
   // Get analytics data

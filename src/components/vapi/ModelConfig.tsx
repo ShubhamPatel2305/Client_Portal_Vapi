@@ -7,15 +7,15 @@ import { Sparkles, Thermometer, MessageSquare, Bot, Cpu, Info } from 'lucide-rea
 interface ModelConfigProps {
   config: {
     model: {
+      model: string;
       provider: string;
-      name: string;
-      firstMessage: string;
-      systemPrompt: string;
       temperature: number;
-      emotionRecognition: boolean;
+      systemPrompt: string;
+      emotionRecognitionEnabled: boolean;
     };
+    firstMessage: string;
   };
-  onConfigChange: (key: string, value: any, options?: { skipMetricsUpdate: boolean }) => void;
+  onConfigChange: (path: string, value: any) => void;
 }
 
 interface ModelOption {
@@ -38,6 +38,22 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
+  };
+
+  const handleModelChange = (model: string) => {
+    onConfigChange('model.model', model);
+  };
+
+  const handleTemperatureChange = (value: number) => {
+    onConfigChange('model.temperature', value);
+  };
+
+  const handleSystemPromptChange = (value: string) => {
+    onConfigChange('model.systemPrompt', value);
+  };
+
+  const handleEmotionRecognitionChange = (value: boolean) => {
+    onConfigChange('model.emotionRecognitionEnabled', value);
   };
 
   const openAiModels: ModelOption[] = [
@@ -84,11 +100,8 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                   <Info className="h-4 w-4 text-gray-400" />
                 </div>
                 <textarea
-                  value={config.model.firstMessage}
-                  onChange={(e) => {
-                    // Only update the first message without triggering pricing/latency changes
-                    onConfigChange('model.firstMessage', e.target.value, { skipMetricsUpdate: true });
-                  }}
+                  value={config.firstMessage || ''}
+                  onChange={(e) => onConfigChange('firstMessage', e.target.value)}
                   className="w-full h-[50px] px-4 py-3 bg-white text-gray-800 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
                   placeholder="Enter the initial message your assistant will use..."
                 />
@@ -102,11 +115,8 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                   <Info className="h-4 w-4 text-gray-400" />
                 </div>
                 <textarea
-                  value={config.model.systemPrompt}
-                  onChange={(e) => {
-                    // Only update the system prompt without triggering pricing/latency changes
-                    onConfigChange('model.systemPrompt', e.target.value, { skipMetricsUpdate: true });
-                  }}
+                  value={config.model.systemPrompt || ''}
+                  onChange={(e) => handleSystemPromptChange(e.target.value)}
                   className="w-full h-64 px-4 py-3 bg-white text-gray-800 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
                   placeholder="Add your prompt here..."
                 />
@@ -158,8 +168,8 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                   </label>
                   <div className="relative">
                     <select
-                      value={config.model.name}
-                      onChange={(e) => onConfigChange('model.name', e.target.value)}
+                      value={config.model.model}
+                      onChange={(e) => handleModelChange(e.target.value)}
                       className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-50 to-pink-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none cursor-pointer transition-all duration-200 text-gray-900"
                     >
                       {config.model.provider === 'openai' ? (
@@ -179,15 +189,15 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                     <Bot className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                       {config.model.provider === 'openai' ? (
-                        openAiModels.find(m => m.value === config.model.name)?.latency && (
+                        openAiModels.find(m => m.value === config.model.model)?.latency && (
                           <span className="text-xs text-gray-500">
-                            {openAiModels.find(m => m.value === config.model.name)?.latency} • {openAiModels.find(m => m.value === config.model.name)?.cost}
+                            {openAiModels.find(m => m.value === config.model.model)?.latency} • {openAiModels.find(m => m.value === config.model.model)?.cost}
                           </span>
                         )
                       ) : (
-                        anthropicModels.find(m => m.value === config.model.name)?.latency && (
+                        anthropicModels.find(m => m.value === config.model.model)?.latency && (
                           <span className="text-xs text-gray-500">
-                            {anthropicModels.find(m => m.value === config.model.name)?.latency} • {anthropicModels.find(m => m.value === config.model.name)?.cost}
+                            {anthropicModels.find(m => m.value === config.model.model)?.latency} • {anthropicModels.find(m => m.value === config.model.model)?.cost}
                           </span>
                         )
                       )}
@@ -220,7 +230,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                       max="1"
                       step="0.1"
                       value={config.model.temperature}
-                      onChange={(e) => onConfigChange('model.temperature', parseFloat(e.target.value))}
+                      onChange={(e) => handleTemperatureChange(parseFloat(e.target.value))}
                       className="w-full h-2 mt-6 bg-gradient-to-r from-blue-200 via-purple-200 to-pink-200 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
@@ -241,15 +251,15 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                     </div>
                   </div>
                   <Switch
-                    checked={config.model.emotionRecognition}
-                    onChange={(value) => onConfigChange('model.emotionRecognition', value)}
+                    checked={config.model.emotionRecognitionEnabled}
+                    onChange={(value) => handleEmotionRecognitionChange(value)}
                     className={`${
-                      config.model.emotionRecognition ? 'bg-purple-600' : 'bg-gray-200'
+                      config.model.emotionRecognitionEnabled ? 'bg-purple-600' : 'bg-gray-200'
                     } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2`}
                   >
                     <span
                       className={`${
-                        config.model.emotionRecognition ? 'translate-x-6' : 'translate-x-1'
+                        config.model.emotionRecognitionEnabled ? 'translate-x-6' : 'translate-x-1'
                       } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
                     />
                   </Switch>
