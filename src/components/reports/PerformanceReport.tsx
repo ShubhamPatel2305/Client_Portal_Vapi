@@ -1,295 +1,253 @@
-import {
-  Card,
-  Title,
-  Text,
-  AreaChart,
-  BarChart,
-  DonutChart,
-  Grid,
-  LineChart,
-  TabGroup,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
-  Flex,
-  Metric,
-  ProgressBar,
-  Badge,
-  Color,
-} from '@tremor/react';
+import { Card, Title, Text, Grid, AreaChart, DonutChart, BarChart, LineChart, Metric, Badge, Color, ProgressBar, Flex, Subtitle } from '@tremor/react';
+import { format, subDays, isSameDay } from 'date-fns';
+import { TrendingUp, TrendingDown, Clock, PhoneCall, DollarSign, Target, Activity, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import {
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  PhoneCall,
-  DollarSign,
-  Activity,
-  Target,
-  BarChart2,
-} from 'lucide-react';
-import { format, parse, isValid, startOfDay, endOfDay } from 'date-fns';
-import { Analytics } from '../../lib/api/vapiService';
+import { CallData } from '../../pages/Reports';
 
-interface PerformanceReportProps {
-  data: Analytics;
-  dateRange: { from: Date; to: Date };
+interface Props {
+  data: CallData[];
 }
 
-type KPIMetric = 'successRate' | 'responseTime' | 'costEfficiency' | 'callVolume';
-
-interface InsightType {
-  metric: string;
-  value: string | number;
-  trend: number;
-  icon: React.FC;
-  color: Color;
-  kpiKey: KPIMetric;
-}
-
-interface DailyMetrics {
-  date: string;
-  'Call Volume': number;
-  'Cost': number;
-  'Success Rate': number;
-}
-
-export default function PerformanceReport({ data, dateRange }: PerformanceReportProps) {
-  // Filter data based on date range
-  const filteredData = data.monthlyCallData.filter(month => {
-    try {
-      const monthDate = new Date(month.date);
-      return isValid(monthDate) && 
-             monthDate >= startOfDay(dateRange.from) && 
-             monthDate <= endOfDay(dateRange.to);
-    } catch {
-      return false;
+const PerformanceReport: React.FC<Props> = ({ data }) => {
+  // Calculate daily metrics
+  const dailyMetrics = data.reduce((acc: any, call) => {
+    const date = format(new Date(call.startedAt), 'yyyy-MM-dd');
+    if (!acc[date]) {
+      acc[date] = {
+        date,
+        calls: 0,
+        totalCost: 0,
+        successfulCalls: 0,
+        avgDuration: 0,
+        totalDuration: 0,
+      };
     }
-  });
-
-  // Calculate metrics from filtered data
-  const totalCalls = filteredData.reduce((acc, month) => acc + month.calls.length, 0);
-  const successfulCalls = filteredData.reduce((acc, month) => 
-    acc + month.calls.filter(call => call.status === 'success').length, 0);
-  const successRate = totalCalls > 0 ? (successfulCalls / totalCalls) * 100 : 0;
-
-  // Calculate average response time from filtered data
-  const totalMinutes = filteredData.reduce((acc, month) => 
-    acc + month.calls.reduce((sum, call) => sum + call.duration, 0), 0);
-  const avgResponseTime = totalCalls > 0 ? Math.round(totalMinutes / totalCalls) : 0;
-
-  // Calculate cost efficiency from filtered data
-  const totalCost = filteredData.reduce((acc, month) => acc + month.totalCost, 0);
-  const successfulCallsCost = filteredData.reduce((acc, month) => 
-    acc + month.calls.filter(call => call.status === 'success')
-      .reduce((sum, call) => sum + call.cost, 0), 0);
-  const costEfficiency = totalCost > 0 ? (successfulCallsCost / totalCost) * 100 : 0;
-
-  // Create daily metrics
-  const dailyMetrics: DailyMetrics[] = [];
-  const startDate = startOfDay(dateRange.from);
-  const endDate = endOfDay(dateRange.to);
-  
-  // Create a map to store calls by date
-  const callsByDate = new Map();
-  
-  // Group all calls by date
-  filteredData.forEach(month => {
-    month.calls.forEach(call => {
-      const callDate = new Date(call.timestamp);
-      const dateKey = format(callDate, 'yyyy-MM-dd');
-      
-      if (!callsByDate.has(dateKey)) {
-        callsByDate.set(dateKey, []);
-      }
-      callsByDate.get(dateKey).push(call);
-    });
-  });
-  
-  // Create metrics for each day in the range
-  let currentDate = new Date(startDate);
-  while (currentDate <= endDate) {
-    const dateKey = format(currentDate, 'yyyy-MM-dd');
-    const daysCalls = callsByDate.get(dateKey) || [];
     
-    const dayCallCount = daysCalls.length;
-    const daySuccessCount = daysCalls.filter((call: { status: string; }) => call.status === 'success').length;
-    const dayCost = daysCalls.reduce((sum: any, call: { cost: any; }) => sum + (call.cost || 0), 0);
-    const daySuccessRate = dayCallCount > 0 ? (daySuccessCount / dayCallCount) * 100 : 0;
+    const duration = call.endedAt 
+      ? (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000 / 60 
+      : 0;
+    
+    acc[date].calls += 1;
+    acc[date].totalCost += call.cost || 0;
+    acc[date].totalDuration += duration;
+    acc[date].avgDuration = acc[date].totalDuration / acc[date].calls;
+    if (call.status === 'completed') {
+      acc[date].successfulCalls += 1;
+    }
+    
+    return acc;
+  }, {});
 
-    dailyMetrics.push({
-      date: format(currentDate, 'MMM d'),
-      'Call Volume': dayCallCount,
-      'Cost': Number(dayCost.toFixed(2)),
-      'Success Rate': Number(daySuccessRate.toFixed(1))
-    });
+  const chartData = Object.values(dailyMetrics);
 
-    // Move to next day
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
+  // Calculate success rate distribution
+  const totalCalls = data.length;
+  const successfulCalls = data.filter(call => call.status === 'completed').length;
+  const failedCalls = totalCalls - successfulCalls;
 
-  const insights: InsightType[] = [
+  // Calculate trends
+  const today = new Date();
+  const todayCalls = data.filter(call => isSameDay(new Date(call.startedAt), today)).length;
+  const yesterdayCalls = data.filter(call => isSameDay(new Date(call.startedAt), subDays(today, 1))).length;
+  const callsTrend = yesterdayCalls ? ((todayCalls - yesterdayCalls) / yesterdayCalls) * 100 : 0;
+
+  // Calculate average response time
+  const avgResponseTime = data.reduce((sum, call) => {
+    if (call.messages && call.messages.length >= 2) {
+      const firstUserMessage = call.messages.find(m => m.role === 'user');
+      const firstAssistantMessage = call.messages.find(m => m.role === 'assistant');
+      if (firstUserMessage && firstAssistantMessage) {
+        return sum + (firstAssistantMessage.time - firstUserMessage.time);
+      }
+    }
+    return sum;
+  }, 0) / totalCalls;
+
+  // Calculate peak hours
+  const hourlyDistribution = data.reduce((acc: { [key: string]: number }, call) => {
+    const hour = new Date(call.startedAt).getHours();
+    acc[hour] = (acc[hour] || 0) + 1;
+    return acc;
+  }, {});
+
+  const peakHoursData = Object.entries(hourlyDistribution).map(([hour, count]) => ({
+    hour: `${hour}:00`,
+    calls: count,
+  }));
+
+  // Calculate message patterns
+  const messagePatterns = data.reduce((acc: { [key: string]: number }, call) => {
+    if (call.messages) {
+      const userMessages = call.messages.filter(m => m.role === 'user').length;
+      acc['1-2'] = userMessages <= 2 ? (acc['1-2'] || 0) + 1 : acc['1-2'] || 0;
+      acc['3-5'] = (userMessages > 2 && userMessages <= 5) ? (acc['3-5'] || 0) + 1 : acc['3-5'] || 0;
+      acc['6+'] = userMessages > 5 ? (acc['6+'] || 0) + 1 : acc['6+'] || 0;
+    }
+    return acc;
+  }, {});
+
+  const messagePatternData = Object.entries(messagePatterns).map(([range, count]) => ({
+    range,
+    count,
+    percentage: (count / totalCalls) * 100,
+  }));
+
+  const performanceMetrics = [
     {
-      metric: 'Success Rate',
-      value: `${successRate.toFixed(1)}%`,
-      trend: data.numberOfCallsTrend || 0,
+      title: 'Success Rate',
+      metric: `${((successfulCalls / totalCalls) * 100 || 0).toFixed(1)}%`,
       icon: Target,
-      color: 'emerald',
-      kpiKey: 'successRate'
+      trend: callsTrend,
+      color: 'emerald' as Color,
     },
     {
-      metric: 'Response Time',
-      value: `${avgResponseTime} min`,
-      trend: data.totalCallMinutesTrend || 0,
+      title: 'Avg Response Time',
+      metric: `${avgResponseTime.toFixed(1)}s`,
       icon: Clock,
-      color: 'blue',
-      kpiKey: 'responseTime'
+      trend: 0,
+      color: 'blue' as Color,
     },
     {
-      metric: 'Cost Efficiency',
-      value: `${costEfficiency.toFixed(1)}%`,
-      trend: data.avgCostPerCallTrend || 0,
-      icon: DollarSign,
-      color: 'amber',
-      kpiKey: 'costEfficiency'
-    },
-    {
-      metric: 'Call Volume',
-      value: totalCalls,
-      trend: ((totalCalls - (data.numberOfCalls || 0)) / (data.numberOfCalls || 1)) * 100,
+      title: 'Call Volume',
+      metric: totalCalls.toString(),
       icon: PhoneCall,
-      color: 'violet',
-      kpiKey: 'callVolume'
+      trend: callsTrend,
+      color: 'violet' as Color,
+    },
+    {
+      title: 'Avg Cost/Call',
+      metric: `$${((data.reduce((sum, call) => sum + (call.cost || 0), 0)) / totalCalls || 0).toFixed(4)}`,
+      icon: DollarSign,
+      trend: 0,
+      color: 'amber' as Color,
     },
   ];
 
-  // Calculate performance scores
-  const kpiScores: Record<KPIMetric, number> = {
-    successRate: Math.min(100, successRate),
-    responseTime: Math.min(100, Math.max(0, 100 - (avgResponseTime / 5 * 100))),
-    costEfficiency: Math.min(100, costEfficiency),
-    callVolume: Math.min(100, totalCalls > 0 ? 100 : 0),
-  };
-
   return (
     <motion.div
-      className="space-y-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
+      className="space-y-6"
     >
       <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-6">
-        {insights.map((insight) => (
-          <Card key={insight.metric} decoration="top" decorationColor={insight.color}>
-            <Flex alignItems="start">
-              <div className="truncate">
-                <Text className="truncate">{insight.metric}</Text>
-                <Metric className="truncate">{insight.value}</Metric>
-              </div>
-              <Badge
-                icon={insight.trend >= 0 ? TrendingUp : TrendingDown}
-                color={insight.trend >= 0 ? "emerald" : "red"}
-              >
-                {Math.abs(insight.trend).toFixed(1)}%
-              </Badge>
-            </Flex>
-            <Flex className="mt-4 space-x-2">
-              <Text className="truncate">Performance Score</Text>
-              <Text className="truncate text-right">
-                {kpiScores[insight.kpiKey].toFixed(1)}%
-              </Text>
-            </Flex>
-            <ProgressBar
-              value={kpiScores[insight.kpiKey]}
-              color={insight.color}
-              className="mt-2"
-            />
-          </Card>
+        {performanceMetrics.map((metric) => (
+          <motion.div
+            key={metric.title}
+            whileHover={{ scale: 1.02 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            <Card decoration="top" decorationColor={metric.color} className="hover:shadow-lg transition-shadow">
+              <Flex alignItems="start">
+                <div className="truncate">
+                  <Text className="truncate">{metric.title}</Text>
+                  <Metric className="truncate">{metric.metric}</Metric>
+                </div>
+                <Badge
+                  icon={metric.trend >= 0 ? TrendingUp : TrendingDown}
+                  color={metric.trend >= 0 ? "emerald" : "red"}
+                >
+                  {Math.abs(metric.trend).toFixed(1)}%
+                </Badge>
+              </Flex>
+              <Flex className="mt-4">
+                <metric.icon className="h-4 w-4 text-gray-500" />
+                <Text className="ml-2 truncate text-gray-500">vs. previous day</Text>
+              </Flex>
+            </Card>
+          </motion.div>
         ))}
       </Grid>
 
-      <Card>
-        <Title>Performance Trends</Title>
-        <TabGroup>
-          <TabList className="mt-8">
-            <Tab icon={BarChart2}>Call Volume</Tab>
-            <Tab icon={DollarSign}>Cost Analysis</Tab>
-            <Tab icon={Activity}>Success Rate</Tab>
-          </TabList>
-          <TabPanels>
-            <TabPanel>
-              <AreaChart
-                className="mt-8 h-80"
-                data={dailyMetrics}
-                index="date"
-                categories={["Call Volume"]}
-                colors={["blue"]}
-                valueFormatter={(value) => `${value} calls`}
-                showAnimation={true}
-                showLegend={false}
-                minValue={0}
-                maxValue={Math.max(...dailyMetrics.map(d => d['Call Volume'])) + 1}
-              />
-            </TabPanel>
-            <TabPanel>
-              <LineChart
-                className="mt-8 h-80"
-                data={dailyMetrics}
-                index="date"
-                categories={["Cost"]}
-                colors={["emerald"]}
-                valueFormatter={(value) => `$${value.toFixed(2)}`}
-                showAnimation={true}
-                showLegend={false}
-                minValue={0}
-                maxValue={Math.max(...dailyMetrics.map(d => d['Cost'])) * 1.1}
-              />
-            </TabPanel>
-            <TabPanel>
-              <BarChart
-                className="mt-8 h-80"
-                data={dailyMetrics}
-                index="date"
-                categories={["Success Rate"]}
-                colors={["violet"]}
-                valueFormatter={(value) => `${value.toFixed(1)}%`}
-                showAnimation={true}
-                showLegend={false}
-                minValue={0}
-                maxValue={100}
-              />
-            </TabPanel>
-          </TabPanels>
-        </TabGroup>
-      </Card>
-
       <Grid numItems={1} numItemsSm={2} className="gap-6">
-        <Card>
-          <Title>Call Status Distribution</Title>
-          <DonutChart
-            className="mt-8 h-60"
-            data={data.callDistribution}
-            category="value"
-            index="name"
-            valueFormatter={(value) => `${value.toFixed(1)}%`}
-            colors={["emerald", "red", "amber"]}
-            showAnimation={true}
+        <Card className="hover:shadow-lg transition-shadow">
+          <Title>Call Volume Trends</Title>
+          <AreaChart
+            className="mt-4 h-72"
+            data={chartData}
+            index="date"
+            categories={['calls', 'successfulCalls']}
+            colors={['blue', 'emerald']}
+            valueFormatter={(value: number) => `${Math.round(value)} calls`}
           />
         </Card>
-        <Card>
-          <Title>Cost Distribution</Title>
-          <DonutChart
-            className="mt-8 h-60"
-            data={data.costAnalysis}
-            category="amount"
-            index="category"
-            valueFormatter={(value) => `$${value.toFixed(2)}`}
-            colors={["blue", "violet", "indigo"]}
-            showAnimation={true}
+        <Card className="hover:shadow-lg transition-shadow">
+          <Title>Peak Hours Distribution</Title>
+          <BarChart
+            className="mt-4 h-72"
+            data={peakHoursData}
+            index="hour"
+            categories={['calls']}
+            colors={['violet']}
+            valueFormatter={(value: number) => `${value} calls`}
           />
         </Card>
       </Grid>
+
+      <Grid numItems={1} numItemsSm={2} className="gap-6">
+        <Card className="hover:shadow-lg transition-shadow">
+          <Title>Call Success Distribution</Title>
+          <DonutChart
+            className="mt-4 h-48"
+            data={[
+              { name: 'Successful Calls', value: successfulCalls },
+              { name: 'Failed Calls', value: failedCalls },
+            ]}
+            category="value"
+            index="name"
+            colors={['emerald', 'rose']}
+            valueFormatter={(value: number) => `${value} calls`}
+          />
+          <div className="mt-4">
+            <Flex className="mt-2">
+              <Text>Success Rate</Text>
+              <Text>{((successfulCalls / totalCalls) * 100).toFixed(1)}%</Text>
+            </Flex>
+            <ProgressBar value={(successfulCalls / totalCalls) * 100} color="emerald" className="mt-2" />
+          </div>
+        </Card>
+        <Card className="hover:shadow-lg transition-shadow">
+          <Title>Message Exchange Patterns</Title>
+          <BarChart
+            className="mt-4 h-48"
+            data={messagePatternData}
+            index="range"
+            categories={['count']}
+            colors={['cyan']}
+            valueFormatter={(value: number) => `${value} calls`}
+          />
+          <div className="mt-4">
+            <Text>Message Exchanges per Call</Text>
+            {messagePatternData.map((pattern) => (
+              <div key={pattern.range} className="mt-2">
+                <Flex>
+                  <Text>{pattern.range} messages</Text>
+                  <Text>{pattern.percentage.toFixed(1)}%</Text>
+                </Flex>
+                <ProgressBar value={pattern.percentage} color="cyan" className="mt-1" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      </Grid>
+
+      <Card className="hover:shadow-lg transition-shadow">
+        <Title>Daily Performance Metrics</Title>
+        <Subtitle className="mt-2">Combined view of duration and cost metrics</Subtitle>
+        <LineChart
+          className="mt-4 h-72"
+          data={chartData}
+          index="date"
+          categories={['avgDuration', 'totalCost']}
+          colors={['amber', 'emerald']}
+          valueFormatter={(value: number) => 
+            value > 100 ? `$${value.toFixed(2)}` : `${value.toFixed(1)} min`
+          }
+          showLegend
+        />
+      </Card>
     </motion.div>
   );
-}
+};
+
+export default PerformanceReport;

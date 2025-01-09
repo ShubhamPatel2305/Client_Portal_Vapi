@@ -353,15 +353,47 @@ export const vapiService = {
   // Update assistant configuration
   async updateAssistant(assistantId: string, data: any) {
     try {
+      // Validate model based on provider
+      const openAiModels = [
+        'o1-preview', 'o1-preview-2024-09-12', 'o1-mini', 'o1-mini-2024-09-12',
+        'gpt-4o-realtime-preview-2024-10-01', 'gpt-4o-realtime-preview-2024-12-17',
+        'gpt-4o-mini-realtime-preview-2024-12-17', 'gpt-4o-mini', 'gpt-4o-mini-2024-07-18',
+        'gpt-4o', 'gpt-4o-2024-05-13', 'gpt-4o-2024-08-06', 'gpt-4o-2024-11-20',
+        'gpt-4-turbo', 'gpt-4-turbo-2024-04-09', 'gpt-4-turbo-preview',
+        'gpt-4-0125-preview', 'gpt-4-1106-preview', 'gpt-4', 'gpt-4-0613',
+        'gpt-3.5-turbo', 'gpt-3.5-turbo-0125', 'gpt-3.5-turbo-1106',
+        'gpt-3.5-turbo-16k', 'gpt-3.5-turbo-0613'
+      ];
+
+      const anthropicModels = [
+        'claude-3-opus-20240229',
+        'claude-3-sonnet-20240229',
+        'claude-3-haiku-20240307',
+        'claude-3-5-sonnet-20240620',
+        'claude-3-5-sonnet-20241022',
+        'claude-3-5-haiku-20241022'
+      ];
+
+      if (data.model?.provider === 'openai' && !openAiModels.includes(data.model?.model)) {
+        throw new Error(`Invalid OpenAI model selected. Please choose from: ${openAiModels.join(', ')}`);
+      }
+
+      if (data.model?.provider === 'anthropic' && !anthropicModels.includes(data.model?.model)) {
+        throw new Error(`Invalid Anthropic model selected. Please choose from: ${anthropicModels.join(', ')}`);
+      }
+
       const response = await vapiAxios.patch(`/assistant/${assistantId}`, data);
       return response.data;
     } catch (error: any) {
       console.error('Error in updateAssistant:', error);
+      
       if (error.response?.data?.message) {
-        throw new Error(Array.isArray(error.response.data.message) 
+        const message = Array.isArray(error.response.data.message) 
           ? error.response.data.message.join(', ') 
-          : error.response.data.message);
+          : error.response.data.message;
+        throw new Error(message);
       }
+      
       throw error;
     }
   },
@@ -394,6 +426,40 @@ export const vapiService = {
     const response = await vapiAxios.get(`/assistant/${assistantId}`);
     return response.data;
   },
+};
+
+// Get all call data with analytics
+export const getCallData = async (timeRange: string = '7d') => {
+  try {
+    const now = new Date();
+    let startDate = new Date();
+
+    switch (timeRange) {
+      case '7d':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(now.getDate() - 90);
+        break;
+      case 'all':
+        startDate = new Date(0); // Beginning of time
+        break;
+    }
+
+    const response = await vapiAxios.get('/call', {
+      params: {
+        createdAtGe: startDate.toISOString(),
+        createdAtLe: now.toISOString(),
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching call data:', error);
+    throw error;
+  }
 };
 
 export default vapiService;

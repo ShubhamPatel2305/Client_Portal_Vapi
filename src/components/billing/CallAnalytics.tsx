@@ -83,31 +83,31 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
     dist => dist.name.charAt(0).toUpperCase() + dist.name.slice(1) + ' Calls'
   );
 
-  const handleDownloadReport = () => {
-    const reportData = {
-      totalCalls: data.calls.total,
-      inboundCalls: data.calls.inbound,
-      outboundCalls: data.calls.outbound,
-      avgDuration: Math.floor(data.calls.avgDuration / 60),
-      totalCost: parseFloat(data.calls.cost),
-      successRate: data.calls.callDistribution.find(d => d.name === 'success')?.value || 0,
-      dailyStats: data.calls.dailyStats.map(stat => ({
-        date: format(stat.date, 'MMM dd'),
-        totalCalls: stat.totalCalls
-      })),
-      callDetails: data.calls.details.map(call => ({
-        id: call.id,
-        date: format(new Date(call.startedAt), 'MMM dd, yyyy HH:mm'),
-        type: call.type,
-        duration: new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime(),
-        cost: call.cost,
-        status: call.status
-      }))
-    };
+  // const handleDownloadReport = () => {
+  //   const reportData = {
+  //     totalCalls: data.calls.total,
+  //     inboundCalls: data.calls.inbound,
+  //     outboundCalls: data.calls.outbound,
+  //     avgDuration: Math.floor(data.calls.avgDuration / 60),
+  //     totalCost: parseFloat(data.calls.cost),
+  //     successRate: data.calls.callDistribution.find(d => d.name === 'success')?.value || 0,
+  //     dailyStats: data.calls.dailyStats.map(stat => ({
+  //       date: format(stat.date, 'MMM dd'),
+  //       totalCalls: stat.totalCalls
+  //     })),
+  //     callDetails: data.calls.details.map(call => ({
+  //       id: call.id,
+  //       date: format(new Date(call.startedAt), 'MMM dd, yyyy HH:mm'),
+  //       type: call.type,
+  //       duration: new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime(),
+  //       cost: call.cost,
+  //       status: call.status
+  //     }))
+  //   };
 
-    const doc = generateAnalyticsReport(reportData);
-    doc.save(`analytics-report-${monthNames[selectedMonth]}-2024.pdf`);
-  };
+  //   const doc = generateAnalyticsReport(reportData);
+  //   doc.save(`analytics-report-${monthNames[selectedMonth]}-2024.pdf`);
+  // };
 
   const handleDownloadInvoice = () => {
     const invoiceData = {
@@ -173,7 +173,7 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
                 </svg>
               </div>
             </div>
-            <motion.button
+            {/* <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleDownloadReport}
@@ -181,7 +181,7 @@ export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMont
             >
               <Download className="w-4 h-4 mr-2" />
               Download Report
-            </motion.button>
+            </motion.button> */}
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

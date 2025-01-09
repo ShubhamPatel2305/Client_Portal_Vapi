@@ -16,6 +16,7 @@ interface ModelConfigProps {
     firstMessage: string;
   };
   onConfigChange: (path: string, value: any) => void;
+  onMetricsChange: (metrics: { cost: number; latency: number }) => void;
 }
 
 interface ModelOption {
@@ -26,7 +27,7 @@ interface ModelOption {
   cost?: number;
 }
 
-const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => {
+const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange, onMetricsChange }) => {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -40,8 +41,20 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
     visible: { opacity: 1, y: 0 }
   };
 
-  const handleModelChange = (model: string) => {
-    onConfigChange('model.model', model);
+  const handleModelChange = (modelValue: string) => {
+    onConfigChange('model.model', modelValue);
+    
+    // Find the selected model to get its metrics
+    const models = config.model.provider === 'openai' ? openAiModels : anthropicModels;
+    const selectedModel = models.find(model => model.value === modelValue);
+    
+    if (selectedModel) {
+      // Update metrics in parent component
+      onMetricsChange({
+        cost: selectedModel.cost,
+        latency: selectedModel.latency
+      });
+    }
   };
 
   const handleTemperatureChange = (value: number) => {
@@ -56,21 +69,36 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
     onConfigChange('model.emotionRecognitionEnabled', value);
   };
 
+  const handleProviderChange = (newProvider: string) => {
+    // First update the provider
+    onConfigChange('model.provider', newProvider);
+    
+    // Set default model based on provider
+    const defaultModel = newProvider === 'openai' ? 'gpt-4o' : 'claude-3-opus-20240229';
+    
+    // Update the model after a short delay to ensure provider is updated first
+    setTimeout(() => {
+      onConfigChange('model.model', defaultModel);
+    }, 100);
+  };
+
   const openAiModels: ModelOption[] = [
-    { value: 'gpt-4o', label: 'GPT 4o', latency: 900, cost: 0.11 },
-    { value: 'gpt-4o-mini', label: 'GPT 4o Mini', latency: 750, cost: 0.08, tags: ['Fastest', 'Cheapest'] },
-    { value: 'gpt-3.5-turbo', label: 'GPT 3.5 Turbo', latency: 700, cost: 0.08 },
-    { value: 'gpt-4-turbo', label: 'GPT 4 Turbo', latency: 1250, cost: 0.24 },
-    { value: 'gpt-4o-realtime', label: 'GPT 4o Realtime', latency: 700, cost: 0.74 }
+    { value: 'gpt-4o', label: 'GPT-4o', latency: 900, cost: 0.15 },
+    { value: 'gpt-4o-mini', label: 'GPT-4o-Mini', latency: 800, cost: 0.12 },
+    { value: 'o1-preview', label: 'O1 Preview', latency: 700, cost: 0.10 },
+    { value: 'o1-mini', label: 'O1 Mini', latency: 650, cost: 0.08 },
+    { value: 'gpt-4o-realtime-preview-2024-12-17', label: 'GPT-4 Opus Realtime', latency: 750, cost: 0.13 },
+    { value: 'gpt-4o-mini-realtime-preview-2024-12-17', label: 'GPT-4 Opus Mini Realtime', latency: 700, cost: 0.11 },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', latency: 600, cost: 0.06 }
   ];
 
   const anthropicModels: ModelOption[] = [
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', latency: 1450, cost: 0.33 },
-    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet', latency: 1450, cost: 0.12 },
-    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', latency: 850, cost: 0.08 },
-    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet', latency: 950, cost: 0.12 },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', latency: 950, cost: 0.12 },
-    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', latency: 950, cost: 0.12 }
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', latency: 1000, cost: 0.15 },
+    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet', latency: 1000, cost: 0.12 },
+    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', latency: 1000, cost: 0.10 },
+    { value: 'claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet', latency: 1000, cost: 0.11 },
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', latency: 1000, cost: 0.11 },
+    { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', latency: 1000, cost: 0.09 }
   ];
 
   return (
@@ -148,11 +176,11 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                   <div className="relative">
                     <select
                       value={config.model.provider}
-                      onChange={(e) => onConfigChange('model.provider', e.target.value)}
+                      onChange={(e) => handleProviderChange(e.target.value)}
                       className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer transition-all duration-200 text-gray-900"
                     >
-                      <option value="openai" className="text-gray-900">OpenAI</option>
-                      <option value="anthropic" className="text-gray-900">Anthropic</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="anthropic">Anthropic</option>
                     </select>
                     <Cpu className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
                   </div>
@@ -172,36 +200,13 @@ const ModelConfig: React.FC<ModelConfigProps> = ({ config, onConfigChange }) => 
                       onChange={(e) => handleModelChange(e.target.value)}
                       className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-50 to-pink-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none cursor-pointer transition-all duration-200 text-gray-900"
                     >
-                      {config.model.provider === 'openai' ? (
-                        openAiModels.map((model) => (
-                          <option key={model.value} value={model.value} className="text-gray-900">
-                            {model.label}
-                          </option>
-                        ))
-                      ) : (
-                        anthropicModels.map((model) => (
-                          <option key={model.value} value={model.value} className="text-gray-900">
-                            {model.label}
-                          </option>
-                        ))
-                      )}
+                      {(config.model.provider === 'openai' ? openAiModels : anthropicModels).map((model) => (
+                        <option key={model.value} value={model.value} className="text-gray-900">
+                          {model.label} ({model.latency}ms • ${model.cost.toFixed(2)}/min)
+                        </option>
+                      ))}
                     </select>
                     <Bot className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      {config.model.provider === 'openai' ? (
-                        openAiModels.find(m => m.value === config.model.model)?.latency && (
-                          <span className="text-xs text-gray-500">
-                            {openAiModels.find(m => m.value === config.model.model)?.latency} • {openAiModels.find(m => m.value === config.model.model)?.cost}
-                          </span>
-                        )
-                      ) : (
-                        anthropicModels.find(m => m.value === config.model.model)?.latency && (
-                          <span className="text-xs text-gray-500">
-                            {anthropicModels.find(m => m.value === config.model.model)?.latency} • {anthropicModels.find(m => m.value === config.model.model)?.cost}
-                          </span>
-                        )
-                      )}
-                    </div>
                   </div>
                 </motion.div>
               </div>

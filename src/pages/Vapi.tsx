@@ -210,24 +210,32 @@ export default function Vapi() {
     if (config.model.provider === 'openai') {
       switch (config.model.model) {
         case 'gpt-4o':
-          cost = 0.11;
+          cost = 0.15;
           latency = 900;
           break;
         case 'gpt-4o-mini':
+          cost = 0.12;
+          latency = 800;
+          break;
+        case 'o1-preview':
+          cost = 0.10;
+          latency = 700;
+          break;
+        case 'o1-mini':
           cost = 0.08;
+          latency = 650;
+          break;
+        case 'gpt-4o-realtime-preview-2024-12-17':
+          cost = 0.13;
           latency = 750;
           break;
+        case 'gpt-4o-mini-realtime-preview-2024-12-17':
+          cost = 0.11;
+          latency = 700;
+          break;
         case 'gpt-3.5-turbo':
-          cost = 0.08;
-          latency = 700;
-          break;
-        case 'gpt-4-turbo':
-          cost = 0.24;
-          latency = 1250;
-          break;
-        case 'gpt-4o-realtime':
-          cost = 0.74;
-          latency = 700;
+          cost = 0.06;
+          latency = 600;
           break;
       }
     }
@@ -235,44 +243,27 @@ export default function Vapi() {
     else if (config.model.provider === 'anthropic') {
       switch (config.model.model) {
         case 'claude-3-opus-20240229':
-          cost = 0.33;
-          latency = 1450;
+          cost = 0.15;
+          latency = 1000;
           break;
         case 'claude-3-sonnet-20240229':
           cost = 0.12;
-          latency = 1450;
+          latency = 1000;
           break;
         case 'claude-3-haiku-20240307':
-          cost = 0.08;
-          latency = 850;
+          cost = 0.10;
+          latency = 1000;
           break;
         case 'claude-3-5-sonnet-20240620':
         case 'claude-3-5-sonnet-20241022':
-          cost = 0.12;
-          latency = 950;
+          cost = 0.11;
+          latency = 1000;
           break;
         case 'claude-3-5-haiku-20241022':
-          cost = 0.12;
-          latency = 950;
+          cost = 0.09;
+          latency = 1000;
           break;
       }
-    }
-
-    // Transcriber-based calculations
-    if (config.transcriber.provider === 'whisper') {
-      if (config.transcriber.model === 'enhanced') {
-        cost += 0.02;
-        latency += 100;
-      } else if (config.transcriber.model === 'premium') {
-        cost += 0.05;
-        latency += 200;
-      }
-    }
-
-    // Voice-based calculations
-    if (config.voice.provider === 'elevenlabs') {
-      cost += 0.03;
-      latency += 50;
     }
 
     return {
@@ -286,6 +277,13 @@ export default function Vapi() {
       const newConfig = produce(prevConfig, (draft: any) => {
         set(draft, path, value);
       });
+
+      // Skip API update if we're changing provider (model will be updated separately)
+      if (path === 'model.provider') {
+        const newMetrics = calculateMetrics(newConfig);
+        setMetrics(newMetrics);
+        return newConfig;
+      }
 
       // Prepare data for API
       const apiData = {
@@ -317,29 +315,30 @@ export default function Vapi() {
         maxDurationSeconds: newConfig.maxDurationSeconds,
         backgroundSound: newConfig.backgroundSound,
         backchannelingEnabled: newConfig.backchannelingEnabled,
-        backgroundDenoisingEnabled: newConfig.backgroundDenoisingEnabled,
-        artifactPlan: {
-          videoRecordingEnabled: newConfig.artifactPlan?.videoRecordingEnabled || false
-        },
-        startSpeakingPlan: {
-          waitSeconds: newConfig.startSpeakingPlan?.waitSeconds || 1.1,
-          smartEndpointingEnabled: newConfig.startSpeakingPlan?.smartEndpointingEnabled || true
-        }
+        backgroundDenoisingEnabled: newConfig.backgroundDenoisingEnabled
       };
+
+      // Store current metrics
+      const currentMetrics = calculateMetrics(newConfig);
 
       // Update API
       vapiService.updateAssistant(ASSISTANT_ID, apiData)
         .then(() => {
-          toast.success('Settings updated successfully');
+          // After successful update, ensure metrics are set correctly
+          setMetrics(currentMetrics);
         })
         .catch((error) => {
           console.error('Error updating assistant:', error);
-          toast.error(error.message || 'Failed to update settings');
+          toast.error(error.message);
         });
 
       return newConfig;
     });
   }, [ASSISTANT_ID]);
+
+  const handleMetricsChange = (newMetrics: { cost: number; latency: number }) => {
+    setMetrics(newMetrics);
+  };
 
   const handleSendToVapi = async () => {
     // Start loading state
@@ -583,7 +582,11 @@ export default function Vapi() {
 
         <Tab.Panels>
           <Tab.Panel>
-            <ModelConfig config={config} onConfigChange={handleConfigChange} />
+            <ModelConfig
+              config={config}
+              onConfigChange={handleConfigChange}
+              onMetricsChange={handleMetricsChange}
+            />
           </Tab.Panel>
           <Tab.Panel>
             <TranscriberConfig config={config} onConfigChange={handleConfigChange} />
