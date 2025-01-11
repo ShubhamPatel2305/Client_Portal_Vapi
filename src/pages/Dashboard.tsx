@@ -47,8 +47,8 @@ import {
 } from '@tremor/react';
 
 import ExportModal from '../components/modals/ExportModal';
-import ScheduleModal from '../components/modals/ScheduleModal';
-import AlertSettingsModal from '../components/modals/AlertSettingsModal';
+// import ScheduleModal from '../components/modals/ScheduleModal';
+// import AlertSettingsModal from '../components/modals/AlertSettingsModal';
 import CallDetailsModal from '../components/modals/CallDetailsModal';
 import { fetchDashboardData } from '../lib/api';
 import { Analytics } from '../lib/api/vapiService';
@@ -163,8 +163,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [showAlertModal, setShowAlertModal] = useState(false);
+  // const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // const [showAlertModal, setShowAlertModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [calls, setCalls] = useState<VapiCall[]>([]);
   const [loadingCalls, setLoadingCalls] = useState(false);
@@ -369,7 +369,7 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-4">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          {/* <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button
               icon={Calendar}
               variant="secondary"
@@ -386,7 +386,7 @@ export default function Dashboard() {
             >
               Alerts
             </Button>
-          </motion.div>
+          </motion.div> */}
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button
               icon={Download}
@@ -1233,7 +1233,7 @@ export default function Dashboard() {
         onClose={() => setShowExportModal(false)}
         data={data}
       />
-      <ScheduleModal 
+      {/* <ScheduleModal 
         isOpen={showScheduleModal} 
         onClose={() => setShowScheduleModal(false)}
         onSchedule={(scheduleData) => {
@@ -1248,7 +1248,7 @@ export default function Dashboard() {
           console.log('Alert settings:', alertSettings);
           setShowAlertModal(false);
         }}
-      />
+      /> */}
       {selectedCall && (
         <CallDetailsModal
           call={selectedCall}
