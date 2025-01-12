@@ -119,7 +119,7 @@ const calculateUsageMetrics = (data: CallData[]): UsageMetrics => {
 
 const calculateSuccessRate = (data: CallData[]): number => {
   if (data.length === 0) return 0;
-  const successfulCalls = data.filter(call => call.status === 'completed').length;
+  const successfulCalls = data.filter(call => call.status === 'ended' && call.endedReason === 'customer-ended-call').length;
   return (successfulCalls / data.length) * 100;
 };
 
@@ -142,8 +142,8 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
     performanceMetrics,
   } = useMemo(() => {
     const total = data.reduce((sum, call) => sum + (call.cost || 0), 0);
-    const completed = data.filter(call => call.status === 'completed').length;
-    const failed = data.length - completed;
+    const totalCalls = data.length;
+    const successfulCalls = data.filter(call => call.status === 'ended' && call.endedReason === 'customer-ended-call').length;
     const success = calculateSuccessRate(data);
 
     // Calculate cost trend
@@ -192,8 +192,8 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
       successRate: success,
       totalTokens: tokens.totalTokens,
       costTrend: trend,
-      completedCalls: completed,
-      failedCalls: failed,
+      completedCalls: successfulCalls,
+      failedCalls: data.length - successfulCalls,
       serviceMetrics,
       usageMetrics,
       performanceMetrics,
@@ -240,7 +240,7 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
           const tokens = call.costBreakdown?.totalTokens || 0;
           return sum + tokens;
         }, 0);
-        const completedCalls = dayCalls.filter(call => call.status === 'completed').length;
+        const completedCalls = dayCalls.filter(call => call.status === 'ended' && call.endedReason === 'customer-ended-call').length;
 
         dayData.total = totalDayCost;
         dayData.promptCost = dayCalls.reduce((sum, call) => sum + (call.costBreakdown?.promptCost || 0), 0);
@@ -640,7 +640,7 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
                             </TableCell>
                             <TableCell>
                               <Badge 
-                                color={call.status === 'completed' ? 'emerald' : 'red'}
+                                color={call.status === 'ended' && call.endedReason === 'customer-ended-call' ? 'emerald' : 'red'}
                                 size="xs"
                               >
                                 {call.status}

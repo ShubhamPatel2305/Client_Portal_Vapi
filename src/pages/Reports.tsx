@@ -73,9 +73,12 @@ const timeRanges = [
   { label: 'All Time', value: 'all' },
 ];
 
-const Reports = () => {
+const Reports: React.FC = () => {
   const [selectedView, setSelectedView] = useState(0);
-  const [selectedRange, setSelectedRange] = useState('7d');
+  const [selectedRange, setSelectedRange] = useState(() => {
+    const savedRange = localStorage.getItem('reportsTimeRange');
+    return savedRange || '7d';
+  });
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<CallData[]>([]);
 
@@ -115,6 +118,11 @@ const Reports = () => {
 
   const handleRefresh = () => {
     fetchData();
+  };
+
+  const handleRangeChange = (value: string) => {
+    setSelectedRange(value);
+    localStorage.setItem('reportsTimeRange', value);
   };
 
   const pageTransition = {
@@ -268,8 +276,8 @@ const Reports = () => {
         <div className="flex items-center gap-4">
           <Select
             value={selectedRange}
-            onValueChange={setSelectedRange}
-            className="w-40"
+            onValueChange={handleRangeChange}
+            className="w-36"
           >
             {timeRanges.map((range) => (
               <SelectItem key={range.value} value={range.value}>

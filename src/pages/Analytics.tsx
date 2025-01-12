@@ -98,10 +98,37 @@ interface OverviewMetricsProps {
 }
 
 const OverviewMetrics: React.FC<OverviewMetricsProps> = ({ data }) => {
+  console.log('OverviewMetrics data:', {
+    totalCalls: data.numberOfCalls,
+    totalMinutes: data.totalCallMinutes,
+    totalSpent: data.totalSpent
+  });
+
   const successRate = ((data.callDistribution.find(d => d.name === 'Successful')?.value || 0) / data.numberOfCalls * 100).toFixed(1);
   const totalCalls = data.numberOfCalls || 0;
-  const avgDuration = (data.totalCallMinutes / (totalCalls || 1)).toFixed(1);
-  const avgCostPerMinute = data.totalCallMinutes > 0 ? (data.totalSpent / data.totalCallMinutes) : 0;
+
+  // Calculate average duration (minutes per call)
+  const avgDuration = totalCalls > 0 
+    ? (data.totalCallMinutes / totalCalls).toFixed(1)
+    : "0.0";
+  
+  console.log('Average duration calculation:', {
+    totalMinutes: data.totalCallMinutes,
+    totalCalls,
+    result: avgDuration
+  });
+
+  // Calculate cost efficiency (cost per minute)
+  const costEfficiency = data.totalCallMinutes > 0 
+    ? (data.totalSpent / data.totalCallMinutes).toFixed(4)
+    : "0.00";
+
+  console.log('Cost efficiency calculation:', {
+    totalSpent: data.totalSpent,
+    totalMinutes: data.totalCallMinutes,
+    result: costEfficiency
+  });
+
   const successfulCallData = data.callDistribution?.find(d => d.name === 'Successful');
   const successValue = successfulCallData?.value ?? 0;
 
@@ -245,7 +272,7 @@ const OverviewMetrics: React.FC<OverviewMetricsProps> = ({ data }) => {
           <div className="mt-4">
             <Text className="text-gray-600">Cost Efficiency</Text>
             <Title className="text-3xl font-bold text-gray-900">
-              ${avgCostPerMinute.toFixed(2)}/min
+              ${costEfficiency}/min
             </Title>
           </div>
         </Card>
@@ -376,10 +403,15 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ data }) => {
             decorationColor="emerald"
           >
             <div className="flex items-center justify-between mb-6">
-              <Title className="text-lg font-bold text-gray-900">Cost Analysis</Title>
-              <Text className="text-sm text-gray-500">
-                Service breakdown
-              </Text>
+              <div>
+                <Title className="text-lg font-bold text-gray-900">Cost Analysis</Title>
+                <Text className="text-sm text-gray-500">
+                  Service breakdown
+                </Text>
+              </div>
+              <Badge color="blue" size="lg">
+                ${data.totalSpent.toFixed(2)}
+              </Badge>
             </div>
             <div className="space-y-5 mt-4">
               {[
@@ -399,7 +431,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ data }) => {
                       </Text>
                     </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className={`h-full ${item.color} transition-all duration-500`}
                       style={{ 
@@ -616,8 +648,11 @@ const QualityTab: React.FC<QualityTabProps> = ({ data }) => {
   );
 };
 
-const Analytics = () => {
-  const [selectedRange, setSelectedRange] = useState('7d');
+const Analytics: React.FC = () => {
+  const [selectedRange, setSelectedRange] = useState(() => {
+    const savedRange = localStorage.getItem('analyticsTimeRange');
+    return savedRange || '7d';
+  });
   const [data, setData] = useState<AnalyticsType | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('performance');
@@ -665,49 +700,31 @@ const Analytics = () => {
       if (!response.ok) throw new Error('Failed to fetch analytics data');
 
       const calls = await response.json();
-      const filteredCalls = filterCallsByDateRange(calls, selectedRange);
+      console.log('Raw API calls:', calls);
       
-      // Process hourly analysis
-      const hourlyAnalysis = Array.from({ length: 24 }, (_, hour) => {
-        const hourCalls = filteredCalls.filter(call => new Date(call.startedAt).getHours() === hour);
-        const successfulCalls = hourCalls.filter(call => 
-          call.status === 'ended' && call.endedReason === 'customer-ended-call'
-        );
-        
-        return {
-          hour,
-          calls: hourCalls.length,
-          successRate: hourCalls.length > 0 ? (successfulCalls.length / hourCalls.length) * 100 : 0
-        };
-      });
+      const filteredCalls = filterCallsByDateRange(calls, selectedRange);
+      console.log('Filtered calls:', filteredCalls);
+      
+      // Calculate total duration and cost
+      const totalDuration = filteredCalls.reduce((acc, call) => {
+        const duration = call.endedAt && call.startedAt ? 
+          (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / (1000 * 60) : 0;
+        console.log('Call duration:', { id: call.id, duration, start: call.startedAt, end: call.endedAt });
+        return acc + duration;
+      }, 0);
 
-      // Process call history
-      const callHistory = filteredCalls.reduce((acc, call) => {
-        const date = format(new Date(call.startedAt), 'yyyy-MM-dd');
-        const existing = acc.find(item => item.date === date);
-        
-        if (existing) {
-          existing.calls += 1;
-          existing.minutes += (call.duration || 0) / 60;
-          existing.cost += call.cost || 0;
-        } else {
-          acc.push({
-            date,
-            calls: 1,
-            minutes: (call.duration || 0) / 60,
-            cost: call.cost || 0
-          });
-        }
-        
-        return acc;
-      }, [] as Array<{ date: string; calls: number; minutes: number; cost: number }>)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const totalCost = filteredCalls.reduce((acc, call) => {
+        console.log('Call cost:', { id: call.id, cost: call.cost });
+        return acc + (call.cost || 0);
+      }, 0);
+
+      console.log('Totals:', { totalDuration, totalCost });
 
       const transformedData: AnalyticsType = {
         numberOfCalls: filteredCalls.length,
-        totalCallMinutes: filteredCalls.reduce((acc, call) => acc + ((call.duration || 0) / 60), 0),
-        totalSpent: filteredCalls.reduce((acc, call) => acc + (call.cost || 0), 0),
-        costPerMinuteTrend: undefined,
+        totalCallMinutes: totalDuration,
+        totalSpent: totalCost,
+        costPerMinuteTrend: 0,
         callDistribution: [
           {
             name: 'Successful',
@@ -738,12 +755,47 @@ const Analytics = () => {
             ).length
           }
         ],
-        callHistory,
-        peakHours: hourlyAnalysis,
+        callHistory: filteredCalls.reduce((acc, call) => {
+          const date = format(new Date(call.startedAt), 'yyyy-MM-dd');
+          const existing = acc.find(item => item.date === date);
+          
+          if (existing) {
+            existing.calls += 1;
+            existing.minutes += (call.duration || 0) / 60;
+            existing.cost += call.cost || 0;
+          } else {
+            acc.push({
+              date,
+              calls: 1,
+              minutes: (call.duration || 0) / 60,
+              cost: call.cost || 0
+            });
+          }
+          
+          return acc;
+        }, [] as Array<{ date: string; calls: number; minutes: number; cost: number }>)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+
+        peakHours: Array.from({ length: 24 }, (_, hour) => {
+          const hourCalls = filteredCalls.filter(call => new Date(call.startedAt).getHours() === hour);
+          const successfulCalls = hourCalls.filter(call => 
+            call.status === 'ended' && call.endedReason === 'customer-ended-call'
+          );
+          
+          return {
+            hour,
+            calls: hourCalls.length,
+            successRate: hourCalls.length > 0 ? (successfulCalls.length / hourCalls.length) * 100 : 0
+          };
+        }),
+
         qualityMetrics: [
           {
             name: 'Average Call Duration',
-            value: `${(filteredCalls.reduce((acc, call) => acc + (call.duration || 0), 0) / (filteredCalls.length * 60)).toFixed(1)} minutes`
+            value: `${(filteredCalls.reduce((acc, call) => {
+              const duration = call.duration || 0;
+              return acc + (duration / 60);
+            }, 0) / (filteredCalls.length || 1)).toFixed(1)} minutes`
           },
           {
             name: 'Success Rate',
@@ -760,6 +812,11 @@ const Analytics = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRangeChange = (value: string) => {
+    setSelectedRange(value);
+    localStorage.setItem('analyticsTimeRange', value);
   };
 
   useEffect(() => {
@@ -791,8 +848,8 @@ const Analytics = () => {
           <div className="flex items-center gap-4">
             <Select
               value={selectedRange}
-              onValueChange={setSelectedRange}
-              className="min-w-[180px]"
+              onValueChange={handleRangeChange}
+              className="w-36"
             >
               {timeRanges.map((range, index) => (
                 <SelectItem key={index} value={range.value} icon={Calendar} className="font-medium">

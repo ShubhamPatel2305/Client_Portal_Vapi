@@ -31,7 +31,7 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
     acc[date].totalCost += call.cost || 0;
     acc[date].totalDuration += duration;
     acc[date].avgDuration = acc[date].totalDuration / acc[date].calls;
-    if (call.status === 'completed') {
+    if (call.status === 'ended' && call.endedReason === 'customer-ended-call') {
       acc[date].successfulCalls += 1;
     }
     
@@ -42,8 +42,9 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
 
   // Calculate success rate distribution
   const totalCalls = data.length;
-  const successfulCalls = data.filter(call => call.status === 'completed').length;
-  const failedCalls = totalCalls - successfulCalls;
+  const successfulCalls = data.filter(call => 
+    call.status === 'ended' && call.endedReason === 'customer-ended-call'
+  ).length;
 
   // Calculate trends
   const today = new Date();
@@ -52,16 +53,37 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
   const callsTrend = yesterdayCalls ? ((todayCalls - yesterdayCalls) / yesterdayCalls) * 100 : 0;
 
   // Calculate average response time
-  const avgResponseTime = data.reduce((sum, call) => {
-    if (call.messages && call.messages.length >= 2) {
-      const firstUserMessage = call.messages.find(m => m.role === 'user');
-      const firstAssistantMessage = call.messages.find(m => m.role === 'assistant');
-      if (firstUserMessage && firstAssistantMessage) {
-        return sum + (firstAssistantMessage.time - firstUserMessage.time);
+  let totalResponseTime = 0;
+  let validResponseCount = 0;
+
+  data.forEach(call => {
+    if (call.messages && Array.isArray(call.messages) && call.messages.length >= 2) {
+      const messages = [...call.messages].sort((a, b) => 
+        (a.timestamp || a.time || 0) - (b.timestamp || b.time || 0)
+      );
+
+      const firstUserMsg = messages.find(m => m.role === 'user');
+      const firstBotMsg = messages.find(m => 
+        (m.role === 'bot' || m.role === 'assistant') && 
+        (m.timestamp || m.time || 0) > (firstUserMsg?.timestamp || firstUserMsg?.time || 0)
+      );
+
+      if (firstUserMsg && firstBotMsg) {
+        const userTime = firstUserMsg.timestamp || firstUserMsg.time || 0;
+        const botTime = firstBotMsg.timestamp || firstBotMsg.time || 0;
+        
+        if (botTime > userTime) {
+          const responseTime = (botTime - userTime) / (1000 * 60); // Convert to minutes
+          if (responseTime > 0 && responseTime < 1) { // Filter out responses over 1 minute
+            totalResponseTime += responseTime;
+            validResponseCount++;
+          }
+        }
       }
     }
-    return sum;
-  }, 0) / totalCalls;
+  });
+
+  const avgResponseTime = validResponseCount > 0 ? totalResponseTime / validResponseCount : 0;
 
   // Calculate peak hours
   const hourlyDistribution = data.reduce((acc: { [key: string]: number }, call) => {
@@ -95,14 +117,14 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
   const performanceMetrics = [
     {
       title: 'Success Rate',
-      metric: `${((successfulCalls / totalCalls) * 100 || 0).toFixed(1)}%`,
+      metric: `${((successfulCalls / totalCalls) * 100).toFixed(1)}%`,
       icon: Target,
       trend: callsTrend,
       color: 'emerald' as Color,
     },
     {
       title: 'Avg Response Time',
-      metric: `${avgResponseTime.toFixed(1)}s`,
+      metric: `${avgResponseTime.toFixed(2)}m`,
       icon: Clock,
       trend: 0,
       color: 'blue' as Color,
@@ -191,7 +213,7 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
             className="mt-4 h-48"
             data={[
               { name: 'Successful Calls', value: successfulCalls },
-              { name: 'Failed Calls', value: failedCalls },
+              { name: 'Failed Calls', value: totalCalls - successfulCalls },
             ]}
             category="value"
             index="name"
