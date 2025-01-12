@@ -26,44 +26,31 @@ import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 
 interface Message {
-  role: string;
-  message: string;
+  role: 'user' | 'bot' | 'assistant';
+  content: string;
   time: number;
+  timestamp?: number;
 }
 
-interface CostBreakdown {
-  ttsCharacters: number;
-  vapi: number;
-  tts: number;
-  llm: number;
-  stt: number;
-  transport: number;
-  llmCompletionTokens: number;
-  llmPromptTokens: number;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  promptCost: number;
-  completionCost: number;
-  totalCost: number;
-}
-
-interface Analysis {
-  averageResponseTime: number;
-  successRate: number;
-  totalCalls: number;
-  averageMessagesPerCall: number;
-}
-
-export interface CallData {
+interface CallData {
   id: string;
   startedAt: string;
   endedAt?: string;
   status: string;
+  endedReason?: string;
+  duration?: number;
   cost: number;
   messages?: Message[];
-  costBreakdown: CostBreakdown;
-  analysis: Analysis;
+  costBreakdown?: {
+    promptTokens: number;
+    completionTokens: number;
+    promptCost: number;
+    completionCost: number;
+    totalTokens?: number;
+  };
+  analysis?: {
+    averageResponseTime: number;
+  };
 }
 
 const timeRanges = [
@@ -96,16 +83,12 @@ const Reports: React.FC = () => {
         costBreakdown: {
           promptTokens: call.promptTokens || 0,
           completionTokens: call.completionTokens || 0,
-          totalTokens: (call.promptTokens || 0) + (call.completionTokens || 0),
           promptCost: (call.promptTokens || 0) * 0.00001,
           completionCost: (call.completionTokens || 0) * 0.00002,
-          totalCost: call.cost || 0,
+          totalTokens: (call.promptTokens || 0) + (call.completionTokens || 0),
         },
         analysis: {
           averageResponseTime: call.averageResponseTime || 0,
-          successRate: call.status === 'completed' ? 100 : 0,
-          totalCalls: 1,
-          averageMessagesPerCall: call.messages?.length || 0,
         },
       }));
       setData(transformedData);
@@ -243,7 +226,7 @@ const Reports: React.FC = () => {
             'In Progress',
           `$${call.cost.toFixed(4)}`,
           call.messages?.length || 0,
-          call.messages?.map((m: Message) => `${m.role}: ${m.message}`).join(' | ') || '',
+          call.messages?.map((m: Message) => `${m.role}: ${m.content}`).join(' | ') || '',
         ]),
       ];
 

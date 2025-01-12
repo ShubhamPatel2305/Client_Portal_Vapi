@@ -24,22 +24,10 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-
-interface Call {
-  id: string;
-  startedAt: string;
-  endedAt?: string;
-  status: string;
-  cost: number;
-  messages?: Array<{
-    role: string;
-    message: string;
-    time: number;
-  }>;
-}
+import type { CallData } from '../../types/CallData';
 
 interface Props {
-  data: Call[];
+  data: CallData[];
 }
 
 const CallDetailsReport = ({ data }: Props) => {
@@ -60,8 +48,8 @@ const CallDetailsReport = ({ data }: Props) => {
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      const aValue = a[sortField as keyof Call];
-      const bValue = b[sortField as keyof Call];
+      const aValue = a[sortField as keyof CallData];
+      const bValue = b[sortField as keyof CallData];
       const direction = sortDirection === 'asc' ? 1 : -1;
       
       if (typeof aValue === 'string' && typeof bValue === 'string') {

@@ -61,7 +61,7 @@ interface HourlyAnalysis {
 }
 
 interface AnalyticsType {
-  costPerMinuteTrend: undefined;
+  costPerMinuteTrend: number;
   numberOfCalls: number;
   totalCallMinutes: number;
   totalSpent: number;
@@ -320,10 +320,9 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ data }) => {
           index="date"
           categories={["Calls", "Cost", "Avg Duration"]}
           colors={["blue", "emerald", "amber"]}
-          valueFormatter={(value, category) => {
-            if (category === "Cost") return `$${Number(value).toFixed(2)}`;
-            if (category === "Avg Duration") return `${value} min`;
-            return Number(value).toLocaleString();
+          valueFormatter={(value: number) => {
+            if (typeof value !== 'number') return '';
+            return value > 100 ? `$${value.toFixed(2)}` : `${value.toFixed(1)} min`;
           }}
           showLegend
           showGridLines
@@ -481,7 +480,10 @@ const DistributionTab: React.FC<DistributionTabProps> = ({ data }) => {
             data={data.callDistribution}
             category="value"
             index="name"
-            valueFormatter={(value) => `${value} calls`}
+            valueFormatter={(value: number) => {
+              if (typeof value !== 'number') return '';
+              return value > 100 ? `$${value.toFixed(2)}` : `${value.toFixed(1)} min`;
+            }}
             colors={["emerald", "red", "amber", "blue"]}
           />
           <div className="space-y-4">
@@ -721,10 +723,10 @@ const Analytics: React.FC = () => {
       console.log('Totals:', { totalDuration, totalCost });
 
       const transformedData: AnalyticsType = {
+        costPerMinuteTrend: 0 as number,
         numberOfCalls: filteredCalls.length,
         totalCallMinutes: totalDuration,
         totalSpent: totalCost,
-        costPerMinuteTrend: 0,
         callDistribution: [
           {
             name: 'Successful',

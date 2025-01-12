@@ -19,7 +19,7 @@ import {
   Subtitle,
 } from '@tremor/react';
 import { motion } from 'framer-motion';
-import { format, subDays } from 'date-fns';
+import { format, subDays, addDays, isSameDay } from 'date-fns';
 import {
   TrendingUp,
   TrendingDown,
@@ -51,9 +51,9 @@ const AdvancedAnalytics: React.FC<Props> = ({ data }) => {
   }, 0) / data.filter(call => call.endedAt).length;
 
   // Calculate success metrics
-  const successRate = (data.filter(call => 
-    call.status === 'completed'
-  ).length / data.length) * 100;
+  const totalCalls = data.length;
+  const successfulCalls = data.filter(call => call.status === 'ended' && call.endedReason === 'customer-ended-call').length;
+  const successRate = totalCalls > 0 ? (successfulCalls / totalCalls) * 100 : 0;
 
   // Calculate hourly distribution
   const hourlyDistribution = data.reduce((acc: { [key: string]: number }, call) => {
@@ -93,12 +93,6 @@ const AdvancedAnalytics: React.FC<Props> = ({ data }) => {
     
     return acc;
   }, []).slice(-5);
-
-  // Calculate success analysis metrics
-  const totalCalls = data.length;
-  const completedCalls = data.filter(call => call.status === 'completed').length;
-  const failedCalls = data.filter(call => call.status === 'failed').length;
-  const inProgressCalls = totalCalls - completedCalls - failedCalls;
 
   // Calculate user interaction insights
   const totalMessages = data.reduce((acc, call) => acc + (call.messages?.length || 0), 0);
@@ -202,21 +196,15 @@ const AdvancedAnalytics: React.FC<Props> = ({ data }) => {
             <div className="mt-4">
               <List>
                 <ListItem>
-                  <span>Completed Calls</span>
+                  <span>Successful Calls</span>
                   <Badge icon={CheckCircle} color="emerald">
-                    {completedCalls}
+                    {successfulCalls}
                   </Badge>
                 </ListItem>
                 <ListItem>
                   <span>Failed Calls</span>
                   <Badge icon={XCircle} color="rose">
-                    {failedCalls}
-                  </Badge>
-                </ListItem>
-                <ListItem>
-                  <span>In Progress</span>
-                  <Badge icon={Clock} color="blue">
-                    {inProgressCalls}
+                    {totalCalls - successfulCalls}
                   </Badge>
                 </ListItem>
               </List>

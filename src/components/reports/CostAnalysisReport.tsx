@@ -48,9 +48,10 @@ import {
   Mic,
   Bot,
   Zap,
+  Brain
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CallData } from '../../pages/Reports';
+import type { CallData } from '../../types/CallData';
 
 interface Props {
   data: CallData[];
@@ -76,12 +77,29 @@ interface DayData {
   callDuration: number;
 }
 
-interface ServiceMetrics {
+interface TokenMetrics {
+  promptTokens: number;
+  completionTokens: number;
+  promptCost: number;
+  completionCost: number;
+  totalTokens: number;
+  totalCost: number;
+}
+
+interface ServiceCosts {
   llm: number;
   stt: number;
   tts: number;
   transport: number;
   vapi: number;
+}
+
+interface ServiceMetrics {
+  title: string;
+  metric: string;
+  subMetric: string;
+  icon: any;
+  color: Color;
 }
 
 interface UsageMetrics {
@@ -90,11 +108,18 @@ interface UsageMetrics {
   totalTTSCharacters: number;
 }
 
-const calculateServiceMetrics = (data: CallData[]): ServiceMetrics => {
+interface PerformanceMetrics {
+  avgResponseTime: number;
+  avgMessagesPerCall: number;
+  avgDuration: number;
+}
+
+const calculateServiceMetrics = (data: CallData[]): ServiceCosts => {
   return data.reduce((acc, call) => {
     const breakdown = call.costBreakdown;
+    const llmCost = (breakdown?.promptCost || 0) + (breakdown?.completionCost || 0);
     return {
-      llm: acc.llm + (breakdown.promptCost + breakdown.completionCost),
+      llm: acc.llm + llmCost,
       stt: acc.stt + (call.cost * 0.2), // Estimated STT cost
       tts: acc.tts + (call.cost * 0.2), // Estimated TTS cost
       transport: acc.transport + (call.cost * 0.1), // Estimated transport cost
@@ -103,18 +128,17 @@ const calculateServiceMetrics = (data: CallData[]): ServiceMetrics => {
   }, { llm: 0, stt: 0, tts: 0, transport: 0, vapi: 0 });
 };
 
-const calculateUsageMetrics = (data: CallData[]): UsageMetrics => {
-  return data.reduce((acc, call) => {
-    const duration = call.endedAt 
-      ? (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000 
-      : 0;
-    
-    return {
-      totalMessages: acc.totalMessages + (call.messages?.length || 0),
-      totalDuration: acc.totalDuration + duration,
-      totalTTSCharacters: acc.totalTTSCharacters + (call.messages?.reduce((sum, msg) => sum + msg.message.length, 0) || 0),
-    };
-  }, { totalMessages: 0, totalDuration: 0, totalTTSCharacters: 0 });
+const calculateUsageMetrics = (data: CallData[]) => {
+  return {
+    totalMessages: data.reduce((sum: number, call) => sum + (call.messages?.length || 0), 0),
+    totalDuration: data.reduce((sum: number, call) => {
+      if (call.endedAt) {
+        return sum + ((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000);
+      }
+      return sum;
+    }, 0),
+    totalTTSCharacters: data.reduce((sum: number, call) => sum + (call.messages?.reduce((sum, msg) => sum + msg.message.length, 0) || 0), 0),
+  };
 };
 
 const calculateSuccessRate = (data: CallData[]): number => {
@@ -124,85 +148,106 @@ const calculateSuccessRate = (data: CallData[]): number => {
 };
 
 const CostAnalysisReport: React.FC<Props> = ({ data }) => {
-  const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const [selectedMetric, setSelectedMetric] = useState<'cost' | 'usage' | 'performance'>('cost');
+  const [activeTab, setActiveTab] = useState<'cost' | 'usage' | 'performance'>('cost');
 
   // Calculate total costs and success metrics
   const {
     totalCost,
     avgCostPerCall,
-    costBreakdown,
     successRate,
     totalTokens,
     costTrend,
-    completedCalls,
-    failedCalls,
     serviceMetrics,
     usageMetrics,
     performanceMetrics,
+    tokenMetrics,
   } = useMemo(() => {
     const total = data.reduce((sum, call) => sum + (call.cost || 0), 0);
     const totalCalls = data.length;
-    const successfulCalls = data.filter(call => call.status === 'ended' && call.endedReason === 'customer-ended-call').length;
     const success = calculateSuccessRate(data);
 
-    // Calculate cost trend
-    const today = new Date();
-    const todayCalls = data.filter(call => isSameDay(new Date(call.startedAt), today));
-    const yesterdayCalls = data.filter(call => isSameDay(new Date(call.startedAt), subDays(today, 1)));
-    const todayCost = todayCalls.reduce((sum, call) => sum + (call.cost || 0), 0);
-    const yesterdayCost = yesterdayCalls.reduce((sum, call) => sum + (call.cost || 0), 0);
-    const trend = yesterdayCost ? ((todayCost - yesterdayCost) / yesterdayCost) * 100 : 0;
+    // Calculate token metrics
+    const tokenMetricsData: TokenMetrics = data.reduce((acc, call) => {
+      const breakdown = call.costBreakdown;
+      const promptTokens = breakdown?.promptTokens || 0;
+      const completionTokens = breakdown?.completionTokens || 0;
+      const promptCost = promptTokens * 0.00001; // $0.01 per 1K tokens
+      const completionCost = completionTokens * 0.00002; // $0.02 per 1K tokens
+      
+      return {
+        promptTokens: acc.promptTokens + promptTokens,
+        completionTokens: acc.completionTokens + completionTokens,
+        promptCost: acc.promptCost + promptCost,
+        completionCost: acc.completionCost + completionCost,
+        totalTokens: acc.totalTokens + promptTokens + completionTokens,
+        totalCost: acc.totalCost + promptCost + completionCost
+      };
+    }, { promptTokens: 0, completionTokens: 0, promptCost: 0, completionCost: 0, totalTokens: 0, totalCost: 0 });
 
-    // Calculate service-specific metrics
-    const serviceMetrics = calculateServiceMetrics(data);
-
-    // Calculate usage metrics
-    const usageMetrics = calculateUsageMetrics(data);
-
-    // Calculate performance metrics
-    const performanceMetrics = {
-      avgResponseTime: data.reduce((sum, call) => sum + (call.analysis?.averageResponseTime || 0), 0) / data.length,
-      avgMessagesPerCall: usageMetrics.totalMessages / data.length,
-      avgDuration: usageMetrics.totalDuration / data.length,
-    };
-
-    // Calculate token usage
-    const tokens = data.reduce((acc, call) => {
-      if (call.costBreakdown) {
-        acc.promptTokens += call.costBreakdown.promptTokens || 0;
-        acc.completionTokens += call.costBreakdown.completionTokens || 0;
-        acc.totalTokens += (call.costBreakdown.llmPromptTokens || 0) + (call.costBreakdown.llmCompletionTokens || 0);
-        acc.promptCost += (call.costBreakdown.llmPromptTokens || 0) * 0.00001;
-        acc.completionCost += (call.costBreakdown.llmCompletionTokens || 0) * 0.00002;
-      }
-      return acc;
-    }, {
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-      promptCost: 0,
-      completionCost: 0,
-    });
+    // Calculate LLM and other service costs
+    const llmCost = tokenMetricsData.totalCost;
+    const remainingCost = total - llmCost;
+    const sttCost = remainingCost * 0.3; // 30% of remaining
+    const ttsCost = remainingCost * 0.3; // 30% of remaining
+    const transportCost = remainingCost * 0.2; // 20% of remaining
+    const vapiCost = remainingCost * 0.2; // 20% of remaining
 
     return {
       totalCost: total,
-      avgCostPerCall: total / data.length,
-      costBreakdown: tokens,
+      avgCostPerCall: total / totalCalls,
       successRate: success,
-      totalTokens: tokens.totalTokens,
-      costTrend: trend,
-      completedCalls: successfulCalls,
-      failedCalls: data.length - successfulCalls,
-      serviceMetrics,
-      usageMetrics,
-      performanceMetrics,
+      totalTokens: tokenMetricsData.totalTokens,
+      costTrend: 0,
+      serviceMetrics: [
+        {
+          title: 'LLM Cost',
+          metric: `$${llmCost.toFixed(4)}`,
+          subMetric: `${((llmCost / total) * 100).toFixed(1)}% of total cost`,
+          icon: Brain,
+          color: 'indigo' as Color
+        },
+        {
+          title: 'STT Cost',
+          metric: `$${sttCost.toFixed(4)}`,
+          subMetric: `${((sttCost / total) * 100).toFixed(1)}% of total cost`,
+          icon: Mic,
+          color: 'violet' as Color
+        },
+        {
+          title: 'TTS Cost',
+          metric: `$${ttsCost.toFixed(4)}`,
+          subMetric: `${((ttsCost / total) * 100).toFixed(1)}% of total cost`,
+          icon: Video,
+          color: 'cyan' as Color
+        },
+        {
+          title: 'Transport Cost',
+          metric: `$${transportCost.toFixed(4)}`,
+          subMetric: `${((transportCost / total) * 100).toFixed(1)}% of total cost`,
+          icon: Phone,
+          color: 'amber' as Color
+        },
+        {
+          title: 'VAPI Cost',
+          metric: `$${vapiCost.toFixed(4)}`,
+          subMetric: `${((vapiCost / total) * 100).toFixed(1)}% of total cost`,
+          icon: Bot,
+          color: 'emerald' as Color
+        },
+      ],
+      usageMetrics: calculateUsageMetrics(data),
+      performanceMetrics: {
+        avgResponseTime: data.reduce((sum, call) => sum + (call.analysis?.averageResponseTime || 0), 0) / data.length,
+        avgMessagesPerCall: calculateUsageMetrics(data).totalMessages / data.length,
+        avgDuration: calculateUsageMetrics(data).totalDuration / data.length,
+      },
+      tokenMetrics: tokenMetricsData,
     };
   }, [data]);
 
   // Calculate daily trends
   const getDailyData = (): DayData[] => {
-    const startDate = subDays(new Date(), timeRange === 'daily' ? 7 : timeRange === 'weekly' ? 30 : 90);
+    const startDate = subDays(new Date(), 7);
     const endDate = new Date();
     const dates: Date[] = [];
     let currentDate = startDate;
@@ -264,7 +309,7 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
     });
   };
 
-  const dailyData = useMemo(() => getDailyData(), [data, timeRange]);
+  const dailyData = useMemo(() => getDailyData(), [data]);
 
   // Calculate cost per minute
   const costPerMinute = useMemo(() => {
@@ -306,11 +351,6 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
     },
   ];
 
-  const costBreakdownData = [
-    { name: 'Prompt Cost', value: costBreakdown.promptCost },
-    { name: 'Completion Cost', value: costBreakdown.completionCost },
-  ];
-
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -340,6 +380,16 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
     return formatValue(value);
   };
 
+  const handleTabChange = (value: "cost" | "usage" | "performance") => {
+    setActiveTab(value);
+  };
+
+  // Service cost distribution data for pie chart
+  const serviceCostData = serviceMetrics.map(metric => ({
+    name: metric.title.replace(' Cost', ''),
+    value: Number(metric.metric.replace('$', ''))
+  }));
+
   return (
     <motion.div
       variants={containerVariants}
@@ -348,7 +398,7 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
       className="space-y-6"
     >
       <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-6">
-        {selectedMetric === 'cost' && (
+        {activeTab === 'cost' && (
           <>
             <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }}>
               <Card decoration="top" decorationColor="emerald" className="hover:shadow-lg transition-shadow duration-300">
@@ -364,46 +414,29 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
                 <ProgressBar value={75} color="emerald" className="mt-3" />
               </Card>
             </motion.div>
-            <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }}>
-              <Card decoration="top" decorationColor="blue" className="hover:shadow-lg transition-shadow duration-300">
-                <Flex alignItems="start">
-                  <div>
-                    <Text className="text-gray-600">LLM Cost</Text>
-                    <Metric className="font-bold text-2xl">${serviceMetrics.llm.toFixed(4)}</Metric>
-                  </div>
-                  <Bot className="h-6 w-6 text-blue-500" />
-                </Flex>
-                <ProgressBar value={serviceMetrics.llm / totalCost * 100} color="blue" className="mt-3" />
-              </Card>
-            </motion.div>
-            <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }}>
-              <Card decoration="top" decorationColor="violet" className="hover:shadow-lg transition-shadow duration-300">
-                <Flex alignItems="start">
-                  <div>
-                    <Text className="text-gray-600">STT/TTS Cost</Text>
-                    <Metric className="font-bold text-2xl">${(serviceMetrics.stt + serviceMetrics.tts).toFixed(4)}</Metric>
-                  </div>
-                  <Mic className="h-6 w-6 text-violet-500" />
-                </Flex>
-                <ProgressBar value={(serviceMetrics.stt + serviceMetrics.tts) / totalCost * 100} color="violet" className="mt-3" />
-              </Card>
-            </motion.div>
-            <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }}>
-              <Card decoration="top" decorationColor="amber" className="hover:shadow-lg transition-shadow duration-300">
-                <Flex alignItems="start">
-                  <div>
-                    <Text className="text-gray-600">Transport Cost</Text>
-                    <Metric className="font-bold text-2xl">${serviceMetrics.transport.toFixed(4)}</Metric>
-                  </div>
-                  <Phone className="h-6 w-6 text-amber-500" />
-                </Flex>
-                <ProgressBar value={serviceMetrics.transport / totalCost * 100} color="amber" className="mt-3" />
-              </Card>
-            </motion.div>
+            {serviceMetrics.map((metric, index) => (
+              <motion.div key={index} variants={itemVariants} whileHover={{ scale: 1.02 }}>
+                <Card decoration="top" decorationColor={metric.color} className="hover:shadow-lg transition-shadow duration-300">
+                  <Flex alignItems="start">
+                    <div>
+                      <Text className="text-gray-600">{metric.title}</Text>
+                      <Metric className="font-bold text-2xl">{metric.metric}</Metric>
+                      {metric.subMetric && (
+                        <Text className="text-gray-500">{metric.subMetric}</Text>
+                      )}
+                    </div>
+                    {metric.icon && (
+                      <metric.icon className="h-6 w-6 text-blue-500" />
+                    )}
+                  </Flex>
+                  <ProgressBar value={75} color={metric.color} className="mt-3" />
+                </Card>
+              </motion.div>
+            ))}
           </>
         )}
 
-        {selectedMetric === 'usage' && (
+        {activeTab === 'usage' && (
           <>
             <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }}>
               <Card decoration="top" decorationColor="emerald" className="hover:shadow-lg transition-shadow duration-300">
@@ -456,7 +489,7 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
           </>
         )}
 
-        {selectedMetric === 'performance' && (
+        {activeTab === 'performance' && (
           <>
             <motion.div variants={itemVariants} whileHover={{ scale: 1.02 }}>
               <Card decoration="top" decorationColor="emerald" className="hover:shadow-lg transition-shadow duration-300">
@@ -510,25 +543,17 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
         )}
       </Grid>
 
-      <Card className="p-2 bg-white/50">
-        <Flex className="space-x-2">
+      <Card className="mb-6">
+        <Flex justifyContent="between" alignItems="center">
+          <Title>Cost Analysis</Title>
           <Select
-            value={selectedMetric}
-            onValueChange={(value: 'cost' | 'usage' | 'performance') => setSelectedMetric(value)}
-            className="max-w-xs"
+            value={activeTab}
+            onValueChange={(value: "cost" | "usage" | "performance") => handleTabChange(value)}
+            className="w-48 z-50"
           >
             <SelectItem value="cost">Cost Metrics</SelectItem>
             <SelectItem value="usage">Usage Metrics</SelectItem>
             <SelectItem value="performance">Performance Metrics</SelectItem>
-          </Select>
-          <Select
-            value={timeRange}
-            onValueChange={(value: 'daily' | 'weekly' | 'monthly') => setTimeRange(value)}
-            className="max-w-xs"
-          >
-            <SelectItem value="daily">Last 7 Days</SelectItem>
-            <SelectItem value="weekly">Last 30 Days</SelectItem>
-            <SelectItem value="monthly">Last 90 Days</SelectItem>
           </Select>
         </Flex>
       </Card>
@@ -554,24 +579,16 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
                     <Subtitle className="mt-2">Breakdown of costs by service component</Subtitle>
                     <DonutChart
                       className="mt-6"
-                      data={[
-                        { name: 'LLM', value: serviceMetrics.llm },
-                        { name: 'STT', value: serviceMetrics.stt },
-                        { name: 'TTS', value: serviceMetrics.tts },
-                        { name: 'Transport', value: serviceMetrics.transport },
-                        { name: 'VAPI', value: serviceMetrics.vapi },
-                      ]}
+                      data={serviceCostData}
                       category="value"
                       index="name"
-                      valueFormatter={formatValue}
-                      colors={["indigo", "violet", "cyan", "amber", "emerald"]}
-                      showAnimation={true}
-                      showTooltip={true}
+                      valueFormatter={(value) => `$${value.toFixed(4)}`}
+                      colors={['blue', 'violet', 'cyan', 'amber', 'emerald']}
                     />
                     <Legend
                       className="mt-6"
-                      categories={['LLM', 'STT', 'TTS', 'Transport', 'VAPI']}
-                      colors={["indigo", "violet", "cyan", "amber", "emerald"]}
+                      categories={serviceCostData.map(data => data.name)}
+                      colors={['blue', 'violet', 'cyan', 'amber', 'emerald']}
                     />
                     <div className="mt-4 space-y-2">
                       <Flex className="border-b pb-2">
@@ -669,13 +686,13 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
                     <Card decoration="left" decorationColor="indigo">
                       <Flex>
                         <Text className="font-medium">LLM Cost</Text>
-                        <Text className="font-semibold text-indigo-600">${serviceMetrics.llm.toFixed(4)}</Text>
+                        <Text className="font-semibold text-indigo-600">${serviceMetrics[0].metric}</Text>
                       </Flex>
                       <Metric className="mt-2">
-                        {((serviceMetrics.llm / totalCost) * 100).toFixed(1)}%
+                        {serviceMetrics[0].subMetric}
                       </Metric>
                       <CategoryBar
-                        values={[serviceMetrics.llm]}
+                        values={[parseFloat(serviceMetrics[0].metric.replace('$', ''))]}
                         colors={["indigo"]}
                         className="mt-2"
                       />
@@ -686,13 +703,13 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
                     <Card decoration="left" decorationColor="violet">
                       <Flex>
                         <Text className="font-medium">STT Cost</Text>
-                        <Text className="font-semibold text-violet-600">${serviceMetrics.stt.toFixed(4)}</Text>
+                        <Text className="font-semibold text-violet-600">${serviceMetrics[1].metric}</Text>
                       </Flex>
                       <Metric className="mt-2">
-                        {((serviceMetrics.stt / totalCost) * 100).toFixed(1)}%
+                        {(serviceMetrics[1].metric.replace('$', '').replace(',', '') / totalCost * 100).toFixed(1)}%
                       </Metric>
                       <CategoryBar
-                        values={[serviceMetrics.stt]}
+                        values={[parseFloat(serviceMetrics[1].metric.replace('$', ''))]}
                         colors={["violet"]}
                         className="mt-2"
                       />
@@ -703,13 +720,13 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
                     <Card decoration="left" decorationColor="cyan">
                       <Flex>
                         <Text className="font-medium">TTS Cost</Text>
-                        <Text className="font-semibold text-cyan-600">${serviceMetrics.tts.toFixed(4)}</Text>
+                        <Text className="font-semibold text-cyan-600">${serviceMetrics[2].metric}</Text>
                       </Flex>
                       <Metric className="mt-2">
-                        {((serviceMetrics.tts / totalCost) * 100).toFixed(1)}%
+                        {(serviceMetrics[2].metric.replace('$', '').replace(',', '') / totalCost * 100).toFixed(1)}%
                       </Metric>
                       <CategoryBar
-                        values={[serviceMetrics.tts]}
+                        values={[parseFloat(serviceMetrics[2].metric.replace('$', ''))]}
                         colors={["cyan"]}
                         className="mt-2"
                       />
@@ -766,53 +783,8 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
                   </Grid>
                 </div>
 
-                <div className="mt-6">
-                  <Title>Token Usage Analysis</Title>
-                  <Grid numItems={1} numItemsSm={2} className="gap-6 mt-4">
-                    <Card className="hover:shadow-lg transition-shadow duration-300">
-                      <Title>Token Distribution</Title>
-                      <DonutChart
-                        className="mt-6"
-                        data={[
-                          { name: 'Prompt Tokens', value: costBreakdown.promptTokens },
-                          { name: 'Completion Tokens', value: costBreakdown.completionTokens },
-                        ]}
-                        category="value"
-                        index="name"
-                        valueFormatter={(value) => value.toLocaleString()}
-                        colors={["indigo", "violet"]}
-                        showAnimation={true}
-                        showTooltip={true}
-                      />
-                      <Legend
-                        className="mt-4"
-                        categories={['Prompt Tokens', 'Completion Tokens']}
-                        colors={["indigo", "violet"]}
-                      />
-                    </Card>
-                    <Card className="hover:shadow-lg transition-shadow duration-300">
-                      <Title>Token Cost Distribution</Title>
-                      <DonutChart
-                        className="mt-6"
-                        data={[
-                          { name: 'Prompt Cost', value: costBreakdown.promptCost },
-                          { name: 'Completion Cost', value: costBreakdown.completionCost },
-                        ]}
-                        category="value"
-                        index="name"
-                        valueFormatter={formatValue}
-                        colors={["indigo", "violet"]}
-                        showAnimation={true}
-                        showTooltip={true}
-                      />
-                      <Legend
-                        className="mt-4"
-                        categories={['Prompt Cost', 'Completion Cost']}
-                        colors={["indigo", "violet"]}
-                      />
-                    </Card>
-                  </Grid>
-                </div>
+                
+                  
               </Card>
             </motion.div>
           </TabPanel>
@@ -823,30 +795,19 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
               animate="visible"
             >
               <Card className="hover:shadow-lg transition-shadow duration-300">
-                <div className="mb-6">
-                  <Select
-                    value={timeRange}
-                    onValueChange={(value: 'daily' | 'weekly' | 'monthly') => setTimeRange(value)}
-                    className="max-w-xs"
-                  >
-                    <SelectItem value="daily">Last 7 Days</SelectItem>
-                    <SelectItem value="weekly">Last 30 Days</SelectItem>
-                    <SelectItem value="monthly">Last 90 Days</SelectItem>
-                  </Select>
-                </div>
-                <Title>Cost Trends Over Time</Title>
-                <Subtitle className="mt-2">Analysis of cost patterns over time</Subtitle>
-                <Grid numItems={1} numItemsSm={2} className="gap-6 mt-6">
+                <Title>Performance Trends</Title>
+                <Subtitle className="mt-2">Analysis of performance patterns over time</Subtitle>
+                <div className="mt-6 space-y-6">
                   <Card className="hover:shadow-lg transition-shadow duration-300">
-                    <Title>Cost vs Response Time</Title>
-                    <Subtitle className="mt-2">Correlation between cost and response time</Subtitle>
+                    <Title>Success Rate Trend</Title>
+                    <Subtitle className="mt-2">Daily success rate performance</Subtitle>
                     <LineChart
                       className="mt-6 h-80"
                       data={dailyData}
                       index="date"
-                      categories={["total", "avgResponseTime"]}
-                      colors={["blue", "amber"]}
-                      valueFormatter={formatMetric}
+                      categories={["successRate"]}
+                      colors={["emerald"]}
+                      valueFormatter={formatPercentage}
                       showAnimation={true}
                       showTooltip={true}
                       showLegend={true}
@@ -854,78 +815,10 @@ const CostAnalysisReport: React.FC<Props> = ({ data }) => {
                     />
                     <Legend
                       className="mt-4"
-                      categories={["Cost", "Response Time"]}
-                      colors={["blue", "amber"]}
+                      categories={["Success Rate"]}
+                      colors={["emerald"]}
                     />
                   </Card>
-                  <Card className="hover:shadow-lg transition-shadow duration-300">
-                    <Title>Cost Components Trend</Title>
-                    <Subtitle className="mt-2">Breakdown of cost components over time</Subtitle>
-                    <AreaChart
-                      className="mt-6 h-80"
-                      data={dailyData}
-                      index="date"
-                      categories={["promptCost", "completionCost"]}
-                      colors={["indigo", "cyan"]}
-                      valueFormatter={formatValue}
-                      showAnimation={true}
-                      showTooltip={true}
-                      showLegend={true}
-                      stack={true}
-                      curveType="natural"
-                    />
-                    <Legend
-                      className="mt-4"
-                      categories={["Prompt Cost", "Completion Cost"]}
-                      colors={["indigo", "cyan"]}
-                    />
-                  </Card>
-                </Grid>
-
-                <div className="mt-6">
-                  <Grid numItems={1} numItemsSm={2} className="gap-6">
-                    <Card className="hover:shadow-lg transition-shadow duration-300">
-                      <Title>Calls and Tokens per Day</Title>
-                      <Subtitle className="mt-2">Daily distribution of calls and token usage</Subtitle>
-                      <BarChart
-                        className="mt-6 h-80"
-                        data={dailyData}
-                        index="date"
-                        categories={["totalCalls", "avgTokensPerCall"]}
-                        colors={["violet", "cyan"]}
-                        valueFormatter={formatMetric}
-                        showAnimation={true}
-                        showTooltip={true}
-                        showLegend={true}
-                      />
-                      <Legend
-                        className="mt-4"
-                        categories={["Total Calls", "Avg Tokens per Call"]}
-                        colors={["violet", "cyan"]}
-                      />
-                    </Card>
-                    <Card className="hover:shadow-lg transition-shadow duration-300">
-                      <Title>Success Rate Trend</Title>
-                      <Subtitle className="mt-2">Daily success rate performance</Subtitle>
-                      <LineChart
-                        className="mt-6 h-80"
-                        data={dailyData}
-                        index="date"
-                        categories={["successRate"]}
-                        colors={["emerald"]}
-                        valueFormatter={formatPercentage}
-                        showAnimation={true}
-                        showTooltip={true}
-                        showLegend={true}
-                        curveType="natural"
-                      />
-                      <Legend
-                        className="mt-4"
-                        categories={["Success Rate"]}
-                        colors={["emerald"]}
-                      />
-                    </Card>
-                  </Grid>
                 </div>
               </Card>
             </motion.div>

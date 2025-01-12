@@ -1,44 +1,66 @@
 import { Card, Title, Text, Grid, AreaChart, DonutChart, BarChart, LineChart, Metric, Badge, Color, ProgressBar, Flex, Subtitle } from '@tremor/react';
 import { format, subDays, isSameDay } from 'date-fns';
-import { TrendingUp, TrendingDown, Clock, PhoneCall, DollarSign, Target, Activity, MessageCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, PhoneCall, DollarSign, Target, Activity, MessageCircle, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { CallData } from '../../pages/Reports';
+import type { CallData } from '../../types/CallData';
+import { useMemo } from 'react';
 
 interface Props {
   data: CallData[];
 }
 
+interface Metrics {
+  avgResponseTime: number;
+  totalCalls: number;
+  successRate: number;
+  avgMessagesPerCall: number;
+}
+
+const calculateMetrics = (data: CallData[]): Metrics => {
+  const totalCalls = data.length;
+  const successfulCalls = data.filter(call => call.status === 'ended' && call.endedReason === 'customer-ended-call').length;
+  
+  return {
+    avgResponseTime: data.reduce((sum, call) => sum + (call.analysis?.averageResponseTime || 0), 0) / totalCalls,
+    totalCalls,
+    successRate: (successfulCalls / totalCalls) * 100,
+    avgMessagesPerCall: data.reduce((sum, call) => sum + (call.messages?.length || 0), 0) / totalCalls
+  };
+};
+
 const PerformanceReport: React.FC<Props> = ({ data }) => {
   // Calculate daily metrics
-  const dailyMetrics = data.reduce((acc: any, call) => {
-    const date = format(new Date(call.startedAt), 'yyyy-MM-dd');
+  const dailyMetrics = Object.entries(data.reduce((acc, call) => {
+    const date = format(new Date(call.startedAt), 'MMM dd');
     if (!acc[date]) {
       acc[date] = {
         date,
+        duration: 0,
         calls: 0,
-        totalCost: 0,
-        successfulCalls: 0,
-        avgDuration: 0,
-        totalDuration: 0,
+        cost: 0
       };
     }
     
     const duration = call.endedAt 
-      ? (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000 / 60 
+      ? (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000 
       : 0;
-    
+    acc[date].duration += duration / 60; // Convert to minutes
     acc[date].calls += 1;
-    acc[date].totalCost += call.cost || 0;
-    acc[date].totalDuration += duration;
-    acc[date].avgDuration = acc[date].totalDuration / acc[date].calls;
-    if (call.status === 'ended' && call.endedReason === 'customer-ended-call') {
-      acc[date].successfulCalls += 1;
-    }
-    
+    acc[date].cost += call.cost || 0;
     return acc;
-  }, {});
+  }, {} as Record<string, { date: string; duration: number; calls: number; cost: number }>))
+  .map(([_, metrics]) => ({
+    date: metrics.date,
+    Duration: Number(metrics.duration.toFixed(1)),
+    Calls: metrics.calls,
+    Cost: Number(metrics.cost.toFixed(4))
+  }))
+  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const chartData = Object.values(dailyMetrics);
+  const maxDuration = Math.max(...dailyMetrics.map(d => d.Duration));
+  const maxCalls = Math.max(...dailyMetrics.map(d => d.Calls));
+  const maxCost = Math.max(...dailyMetrics.map(d => d.Cost));
+  const yAxisMax = Math.ceil(Math.max(maxDuration, maxCalls, maxCost) * 1.2); // Add 20% padding
 
   // Calculate success rate distribution
   const totalCalls = data.length;
@@ -51,6 +73,40 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
   const todayCalls = data.filter(call => isSameDay(new Date(call.startedAt), today)).length;
   const yesterdayCalls = data.filter(call => isSameDay(new Date(call.startedAt), subDays(today, 1))).length;
   const callsTrend = yesterdayCalls ? ((todayCalls - yesterdayCalls) / yesterdayCalls) * 100 : 0;
+
+  // Calculate total duration and average duration per call
+  const totalDuration = useMemo(() => {
+    const totalDuration = data.reduce((acc, call) => {
+      const duration = call.endedAt 
+        ? (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000 
+        : 0;
+      return acc + duration;
+    }, 0);
+
+    const avgDurationPerCall = totalDuration / data.length;
+    const totalMinutes = totalDuration / 60;
+
+    const previousDayData = data.filter(call => {
+      const callDate = new Date(call.startedAt);
+      const yesterday = subDays(new Date(), 1);
+      return isSameDay(callDate, yesterday);
+    });
+
+    const previousDayDuration = previousDayData.reduce((acc, call) => {
+      const duration = call.endedAt 
+        ? (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000 
+        : 0;
+      return acc + duration;
+    }, 0) / 60;
+
+    const durationChange = previousDayDuration ? ((totalMinutes - previousDayDuration) / previousDayDuration) * 100 : 0;
+
+    return {
+      totalDuration: totalMinutes.toFixed(1),
+      avgDurationPerCall: avgDurationPerCall.toFixed(1),
+      durationChange: durationChange.toFixed(1)
+    };
+  }, [data]);
 
   // Calculate average response time
   let totalResponseTime = 0;
@@ -114,6 +170,8 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
     percentage: (count / totalCalls) * 100,
   }));
 
+  const metrics = calculateMetrics(data);
+
   const performanceMetrics = [
     {
       title: 'Success Rate',
@@ -123,8 +181,37 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
       color: 'emerald' as Color,
     },
     {
+      title: 'Total Duration',
+      metric: (
+        <div className="flex items-baseline">
+          <span>{totalDuration.totalDuration}</span>
+          <span className="ml-1 text-sm text-gray-500">minutes</span>
+        </div>
+      ),
+      icon: Clock,
+      trend: Number(totalDuration.durationChange),
+      color: 'blue' as Color,
+    },
+    {
+      title: 'Avg Duration',
+      metric: (
+        <div className="flex items-baseline">
+          <span>{totalDuration.avgDurationPerCall}</span>
+          <span className="ml-1 text-sm text-gray-500">s/percall</span>
+        </div>
+      ),
+      icon: Timer,
+      trend: 0,
+      color: 'violet' as Color,
+    },
+    {
       title: 'Avg Response Time',
-      metric: `${avgResponseTime.toFixed(2)}m`,
+      metric: (
+        <div className="flex items-baseline">
+          <span>{(Number(avgResponseTime) * 60).toFixed(1)}</span>
+          <span className="ml-1 text-sm text-gray-500">s</span>
+        </div>
+      ),
       icon: Clock,
       trend: 0,
       color: 'blue' as Color,
@@ -143,7 +230,34 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
       trend: 0,
       color: 'amber' as Color,
     },
+    {
+      title: 'Avg Response Time',
+      metric: metrics.avgResponseTime.toFixed(2),
+      icon: Clock,
+      trend: 0,
+      color: 'blue' as Color,
+    },
+    {
+      title: 'Success Rate',
+      metric: metrics.successRate.toFixed(1),
+      icon: Target,
+      trend: 0,
+      color: 'emerald' as Color,
+    },
+    {
+      title: 'Avg Messages/Call',
+      metric: metrics.avgMessagesPerCall.toFixed(1),
+      icon: MessageCircle,
+      trend: 0,
+      color: 'cyan' as Color,
+    },
   ];
+
+  const valueFormatter = (value: number, category?: string) => {
+    if (category === 'avgResponseTime') return `${value.toFixed(2)}s`;
+    if (category === 'successRate') return `${value.toFixed(1)}%`;
+    return value.toFixed(1);
+  };
 
   return (
     <motion.div
@@ -186,10 +300,10 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
           <Title>Call Volume Trends</Title>
           <AreaChart
             className="mt-4 h-72"
-            data={chartData}
+            data={dailyMetrics}
             index="date"
-            categories={['calls', 'successfulCalls']}
-            colors={['blue', 'emerald']}
+            categories={['Calls']}
+            colors={['blue']}
             valueFormatter={(value: number) => `${Math.round(value)} calls`}
           />
         </Card>
@@ -256,16 +370,19 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
       <Card className="hover:shadow-lg transition-shadow">
         <Title>Daily Performance Metrics</Title>
         <Subtitle className="mt-2">Combined view of duration and cost metrics</Subtitle>
-        <LineChart
+        <AreaChart
           className="mt-4 h-72"
-          data={chartData}
+          data={dailyMetrics}
           index="date"
-          categories={['avgDuration', 'totalCost']}
-          colors={['amber', 'emerald']}
-          valueFormatter={(value: number) => 
-            value > 100 ? `$${value.toFixed(2)}` : `${value.toFixed(1)} min`
-          }
+          categories={['Duration', 'Calls', 'Cost']}
+          colors={['blue', 'emerald', 'amber']}
+          valueFormatter={valueFormatter}
+          maxValue={yAxisMax}
           showLegend
+          showGridLines
+          showXAxis
+          showYAxis
+          curveType="monotone"
         />
       </Card>
     </motion.div>
