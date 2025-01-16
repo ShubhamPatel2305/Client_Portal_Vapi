@@ -208,7 +208,7 @@ export default function Settings() {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <Title className="text-3xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 ml-[19px]">
+          <Title className="text-3xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-black to-grey-500 ml-[19px]">
             Settings
           </Title>
           <Text className="text-gray-600 mt-2 ml-[19px]">Manage your account preferences and settings</Text>
