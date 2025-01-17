@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { VapiClient } from "@vapi-ai/server-sdk";
 
 const VAPI_BASE_URL = 'https://api.vapi.ai';
 const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
@@ -7,8 +8,8 @@ const vapiClient = axios.create({
   baseURL: VAPI_BASE_URL,
   headers: {
     'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 });
 
 export interface Call {
@@ -58,32 +59,58 @@ export interface Analytics {
   totalSpentTrend: number;
   avgCostPerCall: number;
   avgCostPerCallTrend: number;
-  callDistribution: Array<{
-    name: string;
-    value: number;
-    color: string;
-    trend: string;
-    count: number;
-  }>;
-  costAnalysis: Array<{
-    category: string;
-    amount: number;
-  }>;
-  monthlyCallData: MonthlyCallData[];
-  monthlyTrend: Array<{
-    date: string;
-    calls: number;
-    cost: number;
-  }>;
-  recentCalls: Array<{
-    id: string;
-    phoneNumber: string;
-    type: string;
-    status: string;
-    duration: number;
-    cost: number;
-    date: string;
-  }>;
+  monthlyTrend: MonthlyTrend[];
+  callDistribution: CallDistribution[];
+  recentCalls: RecentCall[];
+}
+
+export interface AnalyticsResult {
+  date: string;
+  calls: number;
+  cost: number;
+}
+
+export interface MonthlyTrend {
+  date: string;
+  calls: number;
+  cost: number;
+}
+
+export interface CallDistribution {
+  name: string;
+  count: number;
+  color: string;
+  trend: string;
+}
+
+export interface RecentCall {
+  id: string;
+  phoneNumber: string;
+  type: string;
+  status: string;
+  duration: number;
+  cost: number;
+  date: string;
+}
+
+export interface CallData {
+  id: string;
+  type: string;
+  startedAt: string;
+  endedAt: string;
+  cost: number;
+  status: string;
+  endedReason?: string;
+  costBreakdown?: {
+    transport: number;
+    stt: number;
+    llm: number;
+    tts: number;
+    vapi: number;
+    total: number;
+  };
+  duration: number;
+  createdAt: string;
 }
 
 export const vapiService = {
@@ -230,6 +257,7 @@ export const vapiService = {
       })) || [];
 
       return {
+        results: [],
         totalCallMinutes,
         totalCallMinutesTrend,
         numberOfCalls: currentCalls,
@@ -238,10 +266,8 @@ export const vapiService = {
         totalSpentTrend,
         avgCostPerCall: currentAvgCost,
         avgCostPerCallTrend,
-        callDistribution,
-        costAnalysis,
-        monthlyCallData,
         monthlyTrend: [],
+        callDistribution,
         recentCalls: []
       };
     } catch (error) {
@@ -283,18 +309,56 @@ export const vapiService = {
         : 0;
 
       return {
-        ...data,
+        results: [],
         monthlyCallData,
         callDistribution: data.callDistribution || [],
         costAnalysis: data.costAnalysis || [],
         monthlyTrend: data.monthlyTrend || [],
         recentCalls: data.recentCalls || [],
         totalSpent,
-        avgCostPerCall
+        avgCostPerCall,
+        totalCallMinutes: 0,
+        totalCallMinutesTrend: 0,
+        numberOfCalls: data.numberOfCalls,
+        numberOfCallsTrend: 0,
       };
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       throw error;
     }
   },
+  async getCalls(startDate?: Date, endDate?: Date): Promise<CallData[]> {
+    try {
+      const client = new VapiClient({ token: import.meta.env.VITE_VAPI_API_KEY || "" });
+      const response = await client.calls.list({
+        createdAtGe: startDate?.toISOString(),
+        createdAtLe: endDate?.toISOString(),
+      });
+
+      return (response || []).map((call: any) => ({
+        id: call.id || '',
+        type: call.type || '',
+        startedAt: call.startedAt || call.createdAt || new Date().toISOString(),
+        endedAt: call.endedAt || call.createdAt || new Date().toISOString(),
+        cost: call.costBreakdown?.total || 0,
+        status: call.status || 'unknown',
+        endedReason: call.endedReason,
+        costBreakdown: call.costBreakdown || {
+          transport: 0,
+          stt: 0,
+          llm: 0,
+          tts: 0,
+          vapi: 0,
+          total: 0
+        },
+        duration: call.startedAt && call.endedAt ? 
+          Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000) : 0,
+        createdAt: call.createdAt || new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error('Error fetching calls:', error);
+      // Return empty array instead of throwing to handle API errors gracefully
+      return [];
+    }
+  }
 };
