@@ -16,6 +16,7 @@ import FunctionConfig from '../components/vapi/FunctionConfig';
 import MetricsDisplay from '../components/vapi/MetricsDisplay';
 import { AdvancedSettings } from '../components/vapi/AdvancedSettings';
 import vapiService from '../services/vapiService';
+import VoiceAssistant from '../components/VoiceAssistant';
 
 export interface Assistant {
   id: string;
@@ -66,7 +67,7 @@ interface MetricsState {
 
 export default function Vapi() {
   const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
-  const ASSISTANT_ID = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
+  const ASSISTANT_ID = import.meta.env.VITE_ASSISTANT_ID || '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
 
   const [config, setConfig] = useState<Assistant>({
     id: '',
@@ -487,6 +488,7 @@ export default function Vapi() {
             <HelpCircle className="w-5 h-5 text-teal-600" />
             <span className="font-medium">Configuration Instructions</span>
           </motion.button>
+          <VoiceAssistant config={config} />
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
