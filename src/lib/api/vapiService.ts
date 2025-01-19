@@ -62,6 +62,8 @@ export interface Analytics {
   monthlyTrend: MonthlyTrend[];
   callDistribution: CallDistribution[];
   recentCalls: RecentCall[];
+  monthlyCallData: MonthlyCallData[];
+  costAnalysis: ChartDataItem[];
 }
 
 export interface AnalyticsResult {
@@ -236,22 +238,27 @@ export const vapiService = {
       const avgCostPerCallTrend = calculateTrend(currentAvgCost, previousAvgCost);
 
       // Process other data
-      const monthlyCallData: Analytics['monthlyCallData'] = data.find((item: any) => item.name === 'monthly_calls')?.result.map((item: any) => ({
-        date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        totalCalls: parseInt(item.countId) || 0,
-        totalCost: parseFloat(data.find((dataItem: any) => dataItem.name === 'monthly_costs')?.result.find((costItem: any) => costItem.date === item.date)?.sumCost || '0'),
-        calls: []
-      })) || [];
+      const monthlyCallData = data.find((item: any) => item.name === 'monthly_calls')?.result.map((item: any) => {
+        const costItem = data.find((dataItem: any) => dataItem.name === 'monthly_costs')?.result
+          .find((costItem: any) => costItem.date === item.date);
+        
+        return {
+          date: item.date.substring(0, 7), // Format: YYYY-MM
+          totalCalls: parseInt(item.countId) || 0,
+          totalCost: parseFloat(costItem?.sumCost || '0'),
+          calls: []
+        };
+      }) || [];
 
-      const costAnalysis: Analytics['costAnalysis'] = data.find((item: any) => item.name === 'monthly_costs')?.result.map((item: any) => ({
-        category: new Date(item.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      const costAnalysis = data.find((item: any) => item.name === 'monthly_costs')?.result.map((item: any) => ({
+        category: item.date.substring(0, 7), // Format: YYYY-MM
         amount: parseFloat(item.sumCost) || 0
       })) || [];
 
-      const callDistribution: Analytics['callDistribution'] = data.find((item: any) => item.name === 'calls_by_status')?.result.map((item: any) => ({
+      const callDistribution = data.find((item: any) => item.name === 'calls_by_status')?.result.map((item: any) => ({
         name: item.status,
         value: (parseInt(item.countId) / currentCalls) * 100,
-        color: '',
+        color: item.status === 'success' ? '#10B981' : item.status === 'failed' ? '#EF4444' : '#6B7280',
         trend: '',
         count: parseInt(item.countId) || 0
       })) || [];
@@ -266,7 +273,13 @@ export const vapiService = {
         totalSpentTrend,
         avgCostPerCall: currentAvgCost,
         avgCostPerCallTrend,
-        monthlyTrend: [],
+        monthlyTrend: monthlyCallData.map(item => ({
+          date: item.date,
+          calls: item.totalCalls,
+          cost: item.totalCost
+        })),
+        monthlyCallData,
+        costAnalysis,
         callDistribution,
         recentCalls: []
       };

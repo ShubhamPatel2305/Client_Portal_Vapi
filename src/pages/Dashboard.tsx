@@ -107,9 +107,9 @@ const getCurrentMonthKey = (): string => {
 };
 
 const getAllMonthsInRange = (data: Analytics | null): string[] => {
-  if (!data?.monthlyCallData) return [];
+  if (!data?.monthlyTrend) return [];
   
-  return [...new Set(data.monthlyCallData.map(item => item.date))]
+  return [...new Set(data.monthlyTrend.map(item => item.date))]
     .sort((a, b) => {
       const [yearA, monthA] = a.split('-').map(Number);
       const [yearB, monthB] = b.split('-').map(Number);
@@ -146,8 +146,8 @@ const calculateTotals = (monthlyData: any[] | undefined) => {
 
   const totals = monthlyData.reduce(
     (acc, curr) => ({
-      totalCalls: acc.totalCalls + curr.totalCalls,
-      totalCost: acc.totalCost + curr.totalCost,
+      totalCalls: acc.totalCalls + curr.calls,
+      totalCost: acc.totalCost + curr.cost,
     }),
     { totalCalls: 0, totalCost: 0 }
   );
@@ -692,59 +692,66 @@ export default function Dashboard() {
                     </div>
 
                     <div className="h-[300px] w-full pl-4" style={{ minWidth: '200px', minHeight: '200px' }}>
-                      <AreaChart
-                        className="h-full w-full"
-                        data={data?.monthlyCallData?.map(item => ({
-                          date: formatMonthYear(item.date),
-                          calls: item.totalCalls,
-                          cost: item.totalCost
-                        })) || []}
-                        index="date"
-                        categories={["calls", "cost"]}
-                        colors={["indigo", "emerald"]}
-                        valueFormatter={(value: number) => value.toFixed(2)}
-                        showLegend={false}
-                        showAnimation={true}
-                        showGridLines={false}
-                        showXAxis={true}
-                        showYAxis={true}
-                        yAxisWidth={40}
-                        startEndOnly={false}
-                        autoMinValue={true}
-                        connectNulls={true}
-                        onValueChange={(v) => console.log(v)}
-                        customTooltip={({ payload }) => {
-                          if (!payload || !Array.isArray(payload) || payload.length === 0) return null;
-                          
-                          const date = payload[0]?.payload?.date;
-                          const calls = payload[0]?.value;
-                          const cost = payload[1]?.value;
-                          
-                          if (!date || typeof calls === 'undefined') return null;
+                      {data?.monthlyTrend && data.monthlyTrend.length > 0 ? (
+                        <AreaChart
+                          className="h-full w-full"
+                          data={data.monthlyTrend
+                            .filter(item => !selectedMonth || item.date === selectedMonth)
+                            .sort((a, b) => a.date.localeCompare(b.date))
+                            .map(item => ({
+                              date: formatMonthYear(item.date),
+                              calls: item.calls,
+                              cost: item.cost
+                            }))}
+                          index="date"
+                          categories={["calls", "cost"]}
+                          colors={["indigo", "emerald"]}
+                          valueFormatter={(value: number) => value.toFixed(2)}
+                          showLegend={false}
+                          showAnimation={true}
+                          showGridLines={false}
+                          showXAxis={true}
+                          showYAxis={true}
+                          yAxisWidth={40}
+                          startEndOnly={false}
+                          autoMinValue={true}
+                          connectNulls={true}
+                          onValueChange={(v) => console.log(v)}
+                          customTooltip={({ payload }) => {
+                            if (!payload || !Array.isArray(payload) || payload.length === 0) return null;
+                            
+                            const date = payload[0]?.payload?.date;
+                            const calls = payload[0]?.value;
+                            const cost = payload[1]?.value;
+                            
+                            if (!date || typeof calls === 'undefined') return null;
 
-                          return (
-                            <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-lg">
-                              <div className="font-medium text-gray-900">
-                                {date}
-                              </div>
-                              <div className="mt-1 font-medium text-gray-600">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                                  <Text className="text-sm text-gray-600">
-                                    {calls} calls
-                                  </Text>
+                            return (
+                              <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-lg">
+                                <div className="font-medium text-gray-900">
+                                  {date}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                                  <Text className="text-sm text-gray-600">
-                                    ${typeof cost === 'number' ? cost.toFixed(2) : '0.00'} cost
-                                  </Text>
+                                <div className="mt-1 font-medium text-gray-600">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                                    <Text className="text-sm text-gray-600">
+                                      {calls} calls
+                                    </Text>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                                    <Text className="text-sm text-gray-600">
+                                      ${typeof cost === 'number' ? cost.toFixed(2) : '0.00'} cost
+                                    </Text>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        }}
-                      />
+                            );
+                          }}
+                        />
+                      ) : (
+                        <NoDataMessage />
+                      )}
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-4">
@@ -818,22 +825,18 @@ export default function Dashboard() {
                   </div>
 
                   <div className="h-[300px] w-full pl-4" style={{ minWidth: '200px', minHeight: '200px' }}>
-                    {data?.monthlyCallData && data.monthlyCallData.length > 0 ? (
+                    {data?.monthlyTrend && data.monthlyTrend.length > 0 ? (
                       <BarChart
                         className="h-full w-full"
-                        data={data.monthlyCallData
+                        data={data.monthlyTrend
                           .filter(item => !selectedMonth || item.date === selectedMonth)
+                          .sort((a, b) => a.date.localeCompare(b.date))
                           .map(item => ({
                             month: formatMonthYear(item.date),
-                            calls: item.totalCalls,
-                            cost: item.totalCost,
+                            calls: item.calls,
+                            cost: item.cost,
                             rawDate: item.date
-                          }))
-                          .sort((a, b) => {
-                            const [yearA, monthA] = a.rawDate.split('-').map(Number);
-                            const [yearB, monthB] = b.rawDate.split('-').map(Number);
-                            return (yearA * 12 + monthA) - (yearB * 12 + monthB);
-                          })}
+                          }))}
                         index="month"
                         categories={["calls", "cost"]}
                         colors={["violet", "emerald"]}
@@ -888,8 +891,8 @@ export default function Dashboard() {
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                     {(() => {
                       const filteredData = selectedMonth
-                        ? data?.monthlyCallData?.filter(item => item.date === selectedMonth)
-                        : data?.monthlyCallData;
+                        ? data?.monthlyTrend?.filter(item => item.date === selectedMonth)
+                        : data?.monthlyTrend;
                       
                       const totals = calculateTotals(filteredData);
 
