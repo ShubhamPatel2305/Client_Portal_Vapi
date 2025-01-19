@@ -363,7 +363,7 @@ export default function Sidebar({ className }: SidebarProps) {
             pointer-events: none;
             transition: all 0.2s ease;
             white-space: nowrap;
-            z-index: 50;
+            z-index: 10;
           }
 
           .sidebar-collapsed .nav-item:hover .nav-tooltip {
@@ -376,7 +376,7 @@ export default function Sidebar({ className }: SidebarProps) {
       <motion.button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         className={cn(
-          'fixed top-4 left-4 z-50 p-2 rounded-lg',
+          'fixed top-4 left-4 z-40 p-2 rounded-lg',
           'bg-white/90 backdrop-blur-lg shadow-lg md:hidden',
           'hover:bg-gray-100/90 transition-colors',
           isMobileOpen && 'bg-gray-100/90'
@@ -392,7 +392,7 @@ export default function Sidebar({ className }: SidebarProps) {
         animate={isCollapsed ? "closed" : "open"}
         variants={window.innerWidth >= 768 ? sidebarVariants : mobileMenuVariants}
         className={cn(
-          'sidebar fixed top-0 left-0 z-40 h-screen',
+          'sidebar fixed top-0 left-0 z-30 h-screen',
           'bg-white/95 backdrop-blur-xl',
           'border-r border-gray-200/50',
           'transition-[box-shadow] duration-150',
