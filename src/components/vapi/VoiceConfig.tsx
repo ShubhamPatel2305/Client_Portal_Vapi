@@ -3,6 +3,7 @@ import { Card } from '@tremor/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, Mic, Settings2, Info, MessageSquare, ToggleLeft, ChevronDown, Wand2 } from 'lucide-react';
 import axios from 'axios';
+import { getApiKey, getAssistantId } from '../../services/credentialsService';
 
 interface VapiResponse {
   id: string;
@@ -66,15 +67,12 @@ const VoiceConfig: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
 
-  const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
-  const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
-
   useEffect(() => {
     const fetchVapiData = async () => {
       try {
-        const response = await axios.get(`https://api.vapi.ai/assistant/${assistantId}`, {
+        const response = await axios.get(`https://api.vapi.ai/assistant/${getAssistantId()}`, {
           headers: {
-            'Authorization': `Bearer ${VAPI_API_KEY}`,
+            'Authorization': `Bearer ${getApiKey()}`,
             'Content-Type': 'application/json',
           },
         });
@@ -157,11 +155,11 @@ const VoiceConfig: React.FC = () => {
 
       // Make API call with the payload
       const response = await axios.patch(
-        `https://api.vapi.ai/assistant/${assistantId}`,
+        `https://api.vapi.ai/assistant/${getAssistantId()}`,
         payload,
         {
           headers: {
-            'Authorization': `Bearer ${VAPI_API_KEY}`,
+            'Authorization': `Bearer ${getApiKey()}`,
             'Content-Type': 'application/json',
           },
         }
@@ -181,9 +179,9 @@ const VoiceConfig: React.FC = () => {
       
       // On error, fetch the latest state from API
       try {
-        const response = await axios.get(`https://api.vapi.ai/assistant/${assistantId}`, {
+        const response = await axios.get(`https://api.vapi.ai/assistant/${getAssistantId()}`, {
           headers: {
-            'Authorization': `Bearer ${VAPI_API_KEY}`,
+            'Authorization': `Bearer ${getApiKey()}`,
             'Content-Type': 'application/json',
           },
         });

@@ -1,15 +1,20 @@
 import axios from 'axios';
 import { VapiClient } from "@vapi-ai/server-sdk";
+import { getApiKey } from '../../services/credentialsService';
 
 const VAPI_BASE_URL = 'https://api.vapi.ai';
 const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
 
+// import { getApiKey } from './credentialsService';
+
+const getHeaders = () => ({
+  'Authorization': `Bearer ${getApiKey()}`,
+  'Content-Type': 'application/json'
+});
+
 const vapiClient = axios.create({
   baseURL: VAPI_BASE_URL,
-  headers: {
-    'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json'
-  }
+  headers: getHeaders()
 });
 
 export interface Call {

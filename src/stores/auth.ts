@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import toast from 'react-hot-toast';
+import { fetchUserCredentials } from '../services/credentialsService';
 
 interface AuthState {
   user: User | null;
@@ -42,6 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       set({ user: userCredential.user, isAuthenticated: true });
+      await fetchUserCredentials(email);
     } catch (error: any) {
       toast.error(error.message);
       throw error;
@@ -51,6 +53,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const result = await signInWithPopup(auth, googleProvider);
       set({ user: result.user, isAuthenticated: true });
+      if (result.user.email) {
+        await fetchUserCredentials(result.user.email);
+      }
     } catch (error: any) {
       toast.error(error.message);
       throw error;
@@ -69,6 +74,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
       set({ user: userCredential.user, isAuthenticated: true });
+      await fetchUserCredentials(email);
     } catch (error: any) {
       toast.error(error.message);
       throw error;

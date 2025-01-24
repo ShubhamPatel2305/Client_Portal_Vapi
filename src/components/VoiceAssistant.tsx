@@ -17,7 +17,7 @@ try {
   console.error('Failed to initialize Vapi:', error);
 }
 
-const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ config, className }) => {
+const VoiceAssistant: React.FC<any> = ({ config, className }) => {
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [assistantIsSpeaking, setAssistantIsSpeaking] = useState(false);
