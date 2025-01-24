@@ -347,13 +347,14 @@ export const vapiService = {
   },
   async getCalls(startDate?: Date, endDate?: Date): Promise<CallData[]> {
     try {
-      const client = new VapiClient({ token: import.meta.env.VITE_VAPI_API_KEY || "" });
-      const response = await client.calls.list({
-        createdAtGe: startDate?.toISOString(),
-        createdAtLe: endDate?.toISOString(),
-      });
+      console.log(startDate?.toISOString(), endDate?.toISOString());
+      var vapiClients= vapiClient;
+      vapiClients.defaults.headers.common['createdAtGe'] = startDate?.toISOString();
+      vapiClients.defaults.headers.common['createdAtLe'] = endDate?.toISOString();
 
-      return (response || []).map((call: any) => ({
+      const response = await vapiClients.get('/call');
+
+      return (response.data || []).map((call: any) => ({
         id: call.id || '',
         type: call.type || '',
         startedAt: call.startedAt || call.createdAt || new Date().toISOString(),
