@@ -259,6 +259,7 @@ const vapiService = {
     const response = await axios.get(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
       headers: getHeaders()
     });
+    console.log(response.data)
     return response.data;
   },
 

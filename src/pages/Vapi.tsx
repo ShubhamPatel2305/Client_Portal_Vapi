@@ -131,6 +131,11 @@ export default function Vapi() {
       const assistantData = await vapiService.getAssistant(getAssistantId());
       console.log('Assistant Data:', assistantData);
 
+      var sysPrompt = assistantData.model?.systemPrompt;
+      if(!sysPrompt){
+        alert("datta");
+      }
+
       // Map the assistant data to your config structure
       setConfig(prevConfig => ({
         ...prevConfig,
