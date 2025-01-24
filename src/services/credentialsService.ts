@@ -29,9 +29,9 @@ export const fetchUserCredentials = async (email: string): Promise<void> => {
 };
 
 export const getApiKey = (): string => {
-  return localStorage.getItem('vapi_api_key') || process.env.NEXT_PUBLIC_VAPI_API_KEY || '';
+  return localStorage.getItem('vapi_api_key') || "bc4bd62c-4c8c-4175-a935-99381197d206" || '';
 };
 
 export const getAssistantId = (): string => {
-  return localStorage.getItem('vapi_assistant_id') || '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
+  return localStorage.getItem('vapi_assistant_id') || "56c7f0f1-a068-4f7f-ae52-33bb86c3896d";
 };
