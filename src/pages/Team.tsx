@@ -1,7 +1,6 @@
 import React, { useState, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, Title, Text } from '@tremor/react';
-import { Target, Heart, Lightbulb, Linkedin, Twitter, Github, Mail, Phone, MapPin, Award, Briefcase, Book } from 'lucide-react';
+import {  Mail, Phone, MapPin, Award, Briefcase, Book } from 'lucide-react';
 
 interface TeamMember {
   id: number;

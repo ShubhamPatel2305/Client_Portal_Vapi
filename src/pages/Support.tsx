@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +6,6 @@ import toast from 'react-hot-toast';
 import { Card } from '@tremor/react';
 import { 
   Send, 
-  Check,
   MessageSquare,
   Mail,
   Phone,

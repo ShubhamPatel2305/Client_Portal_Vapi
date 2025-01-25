@@ -1,7 +1,7 @@
-import React, { FC, useState, useEffect } from 'react';
-import { Card, TextInput, Select, SelectItem } from '@tremor/react';
+import { FC, useState, useEffect } from 'react';
+import { Card } from '@tremor/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Info, Clock, Zap, Video, MessageSquare, Timer, Shield, Lock, Phone } from 'lucide-react';
+import { Mic, Clock, Zap, Video, MessageSquare, Timer, Shield, Lock } from 'lucide-react';
 
 interface AdvancedSettingsProps {
   config: {

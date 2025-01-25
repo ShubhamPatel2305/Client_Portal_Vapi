@@ -1,13 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Card } from '@tremor/react';
 import { Tab } from '@headlessui/react';
-import { Settings2, MessageSquare, Mic, PlayCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, HelpCircle, Loader2 } from 'lucide-react';
+import { Settings2, MessageSquare, Mic, PlayCircle, RefreshCw, ChevronDown, HelpCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { produce } from 'immer';
 import { set } from 'lodash';
 import toast, { Toaster } from 'react-hot-toast';
 import axios from 'axios';
-
 // Components
 import ModelConfig from '../components/vapi/ModelConfig';
 import VoiceConfig from '../components/vapi/VoiceConfig';
@@ -17,10 +15,12 @@ import MetricsDisplay from '../components/vapi/MetricsDisplay';
 import { AdvancedSettings } from '../components/vapi/AdvancedSettings';
 import vapiService from '../services/vapiService';
 import VoiceAssistant from '../components/VoiceAssistant';
+import { getApiKey, getAssistantId } from '../services/credentialsService';
+
 
 export interface Assistant {
   id: string;
-  orgId: string;
+  orgId?: string;
   name: string;
   voice: {
     voiceId: string;
@@ -57,7 +57,6 @@ export interface Assistant {
     waitSeconds: number;
     smartEndpointingEnabled: boolean;
   };
-  isServerUrlSecretSet: boolean;
 }
 
 interface MetricsState {
@@ -66,12 +65,8 @@ interface MetricsState {
 }
 
 export default function Vapi() {
-  const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
-  const ASSISTANT_ID = import.meta.env.VITE_ASSISTANT_ID || '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
-
-  const [config, setConfig] = useState<Assistant>({
+  const [config, setConfig] = useState({
     id: '',
-    orgId: '',
     name: '',
     voice: {
       voiceId: '',
@@ -107,8 +102,7 @@ export default function Vapi() {
     startSpeakingPlan: {
       waitSeconds: 1,
       smartEndpointingEnabled: true
-    },
-    isServerUrlSecretSet: false
+    }
   });
 
   const [metrics, setMetrics] = useState<MetricsState>({
@@ -120,6 +114,7 @@ export default function Vapi() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSendingToVapi, setIsSendingToVapi] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
 
@@ -131,14 +126,18 @@ export default function Vapi() {
     try {
       setIsLoading(true);
       setError(null);
-      const assistantData = await vapiService.getAssistant(ASSISTANT_ID);
+      const assistantData = await vapiService.getAssistant(getAssistantId());
       console.log('Assistant Data:', assistantData);
+
+      var sysPrompt = assistantData.model?.systemPrompt;
+      if(!sysPrompt){
+        alert("datta");
+      }
 
       // Map the assistant data to your config structure
       setConfig(prevConfig => ({
         ...prevConfig,
         id: assistantData.id || prevConfig.id,
-        orgId: assistantData.orgId || prevConfig.orgId,
         name: assistantData.name || prevConfig.name,
         voice: {
           voiceId: assistantData.voice?.voiceId || prevConfig.voice.voiceId,
@@ -174,12 +173,11 @@ export default function Vapi() {
         startSpeakingPlan: {
           waitSeconds: assistantData.startSpeakingPlan?.waitSeconds ?? prevConfig.startSpeakingPlan.waitSeconds,
           smartEndpointingEnabled: assistantData.startSpeakingPlan?.smartEndpointingEnabled ?? prevConfig.startSpeakingPlan.smartEndpointingEnabled
-        },
-        isServerUrlSecretSet: assistantData.isServerUrlSecretSet ?? prevConfig.isServerUrlSecretSet
+        }
       }));
 
       // Get real-time metrics
-      const metrics = await vapiService.getRealTimeMetrics(ASSISTANT_ID);
+      const metrics = await vapiService.getRealTimeMetrics(getAssistantId());
       setMetrics({
         cost: metrics?.cost || 0.08,
         latency: metrics?.latency || 950
@@ -275,70 +273,30 @@ export default function Vapi() {
 
   const handleConfigChange = useCallback((path: string, value: any) => {
     setConfig(prevConfig => {
-      const newConfig = produce(prevConfig, (draft: any) => {
+      const newConfig = produce(prevConfig, draft => {
         set(draft, path, value);
       });
-
-      // Skip API update if we're changing provider (model will be updated separately)
-      if (path === 'model.provider') {
-        const newMetrics = calculateMetrics(newConfig);
-        setMetrics(newMetrics);
-        return newConfig;
-      }
-
-      // Prepare data for API
-      const apiData = {
-        name: newConfig.name,
-        voice: {
-          voiceId: newConfig.voice.voiceId,
-          provider: newConfig.voice.provider
-        },
-        model: {
-          model: newConfig.model.model,
-          provider: newConfig.model.provider,
-          temperature: newConfig.model.temperature,
-          systemPrompt: newConfig.model.systemPrompt,
-          emotionRecognitionEnabled: newConfig.model.emotionRecognitionEnabled
-        },
-        transcriber: {
-          language: newConfig.transcriber.language,
-          provider: newConfig.transcriber.provider
-        },
-        forwardingPhoneNumber: newConfig.forwardingPhoneNumber || '',
-        recordingEnabled: newConfig.recordingEnabled,
-        firstMessage: newConfig.firstMessage,
-        voicemailMessage: newConfig.voicemailMessage,
-        endCallFunctionEnabled: newConfig.endCallFunctionEnabled,
-        endCallMessage: newConfig.endCallMessage,
-        dialKeypadFunctionEnabled: newConfig.dialKeypadFunctionEnabled,
-        hipaaEnabled: newConfig.hipaaEnabled,
-        silenceTimeoutSeconds: newConfig.silenceTimeoutSeconds,
-        maxDurationSeconds: newConfig.maxDurationSeconds,
-        backgroundSound: newConfig.backgroundSound,
-        backchannelingEnabled: newConfig.backchannelingEnabled,
-        backgroundDenoisingEnabled: newConfig.backgroundDenoisingEnabled
-      };
-
-      // Store current metrics
-      const currentMetrics = calculateMetrics(newConfig);
-
-      // Update API
-      vapiService.updateAssistant(ASSISTANT_ID, apiData)
-        .then(() => {
-          // After successful update, ensure metrics are set correctly
-          setMetrics(currentMetrics);
-        })
-        .catch((error) => {
-          console.error('Error updating assistant:', error);
-          toast.error(error.message);
-        });
-
+      setHasUnsavedChanges(true);
       return newConfig;
     });
-  }, [ASSISTANT_ID]);
+  }, []);
 
   const handleMetricsChange = (newMetrics: { cost: number; latency: number }) => {
     setMetrics(newMetrics);
+  };
+
+  const handleUpdateAIAgent = async () => {
+    try {
+      if (!config.id) return;
+      const { id, ...configWithoutId } = config;
+
+      await vapiService.updateAssistant(id, configWithoutId);
+      setHasUnsavedChanges(false);
+      toast.success('AI Agent updated successfully');
+    } catch (error) {
+      console.error('Error updating AI agent:', error);
+      toast.error('Failed to update AI agent');
+    }
   };
 
   const handleSendToVapi = async () => {
@@ -384,11 +342,11 @@ export default function Vapi() {
   
       // Perform the API call
       const response = await axios.patch(
-        `https://api.vapi.ai/assistant/${ASSISTANT_ID}`, 
+        `https://api.vapi.ai/assistant/${getAssistantId()}`, 
         apiConfig,
         {
           headers: {
-            'Authorization': `Bearer ${VAPI_API_KEY}`,
+            'Authorization': `Bearer ${getApiKey()}`,
             'Content-Type': 'application/json'
           }
         }
@@ -588,6 +546,7 @@ export default function Vapi() {
               config={config}
               onConfigChange={handleConfigChange}
               onMetricsChange={handleMetricsChange}
+              hasUnsavedChanges={hasUnsavedChanges}
             />
           </Tab.Panel>
           <Tab.Panel>
@@ -609,16 +568,16 @@ export default function Vapi() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={handleSendToVapi}
-          disabled={isSendingToVapi}
-          className={`px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-2 ${isSendingToVapi ? 'opacity-50 cursor-not-allowed' : ''}`}
+          onClick={handleUpdateAIAgent}
+          disabled={isSendingToVapi || !hasUnsavedChanges}
+          className={`px-6 py-2.5 bg-gradient-to-r ${hasUnsavedChanges ? 'from-amber-600 to-orange-600' : 'from-indigo-600 to-blue-600'} text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-2 ${(isSendingToVapi || !hasUnsavedChanges) ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {isSendingToVapi ? (
-            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
-            <Settings2 className="w-5 h-5 mr-2" />
+            <RefreshCw className="h-5 w-5" />
           )}
-          <span>{isSendingToVapi ? 'Updating...' : 'Update AI Agent'}</span>
+          <span>{hasUnsavedChanges ? 'Update AI Agent' : 'No Changes'}</span>
         </motion.button>
         <Toaster />
       </div>

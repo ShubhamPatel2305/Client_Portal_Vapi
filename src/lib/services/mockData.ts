@@ -1,214 +1,184 @@
-import { faker } from '@faker-js/faker';
-
-export interface Call {
+interface Call {
   id: string;
-  phoneNumber: string;
+  startTime: string;
+  endTime: string;
   duration: number;
-  status: 'success' | 'failed' | 'pending';
-  type: 'inbound' | 'outbound';
-  timestamp: Date;
-  notes?: string;
   cost: number;
-  userId: string;
+  type: 'inbound' | 'outbound' | 'automated';
+  status: 'completed' | 'failed' | 'in-progress';
+  caller: string;
+  recipient: string;
+  notes?: string;
 }
 
-export interface Analytics {
+interface Analytics {
+  calls: never[];
+  results: Array<{
+    date: string;
+    calls: number;
+    cost: number;
+  }>;
   totalCallMinutes: number;
-  totalCallMinutesTrend: { value: number; label: string };
+  totalCallMinutesTrend: number;
   numberOfCalls: number;
-  numberOfCallsTrend: { value: number; label: string };
+  numberOfCallsTrend: number;
   totalSpent: number;
-  totalSpentTrend: { value: number; label: string };
+  totalSpentTrend: number;
   avgCostPerCall: number;
-  avgCostPerCallTrend: { value: number; label: string };
-  callDistribution: { name: string; value: number; color: string; trend: number; count: number }[];
-  costAnalysis: { category: string; amount: number }[];
-  monthlyCallData: { date: string; totalCalls: number; totalCost: number; calls: { callId: string; cost: number; duration: number; timestamp: string; status: 'success' | 'failed' | 'pending'; type: 'inbound' | 'outbound' }[] }[];
-  recentCalls: Call[];
-  regionalData: { name: string; value: number; color: string; trend: number; count: number }[];
+  avgCostPerCallTrend: number;
+  monthlyTrend: Array<{
+    date: string;
+    calls: number;
+    cost: number;
+  }>;
+  callDistribution: Array<{
+    value: number;
+    name: string;
+    count: number;
+    color: string;
+    trend: string;
+  }>;
+  recentCalls: Array<{
+    timestamp: string | number | Date;
+    id: string;
+    phoneNumber: string;
+    type: string;
+    status: string;
+    duration: number;
+    cost: number;
+    date: string;
+  }>;
+  monthlyCallData: Array<{
+    date: string;
+    totalCalls: number;
+    totalCost: number;
+    calls: Array<{
+      callId: string;
+      cost: number;
+      duration: number;
+      timestamp: string;
+      status: string;
+      type: string;
+    }>;
+  }>;
+  costAnalysis: Array<{
+    value: number;
+    label: string;
+  }>;
 }
 
-// Generate mock calls
-const generateMockCalls = (count: number): Call[] => {
-  return Array.from({ length: count }, () => ({
-    id: faker.string.uuid(),
-    timestamp: faker.date.recent(),
-    phoneNumber: faker.phone.number(),
-    duration: faker.number.int({ min: 30, max: 600 }),
-    status: faker.helpers.arrayElement(['success', 'failed', 'pending'] as const),
-    type: faker.helpers.arrayElement(['inbound', 'outbound'] as const),
-    notes: faker.helpers.maybe(() => faker.lorem.sentence()),
-    cost: Number(faker.finance.amount({ min: 1, max: 50, dec: 2 })),
-    userId: faker.string.uuid(),
-  }));
-};
+// Generate random mock calls
+const generateMockCalls = (): Call[] => {
+  const calls: Call[] = [];
+  const now = new Date();
+  const types: Array<'inbound' | 'outbound' | 'automated'> = ['inbound', 'outbound', 'automated'];
+  const statuses: Array<'completed' | 'failed' | 'in-progress'> = ['completed', 'failed', 'in-progress'];
 
-// Generate mock analytics
-const generateMockAnalytics = (): Analytics => {
-  const calls = generateMockCalls(100);
-  const totalCalls = calls.length;
-  const avgDuration = calls.reduce((sum, call) => sum + call.duration, 0) / totalCalls;
-  const totalCost = calls.reduce((sum, call) => sum + call.cost, 0);
+  for (let i = 0; i < 100; i++) {
+    const startTime = new Date(now.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000);
+    const duration = Math.floor(Math.random() * 600) + 60; // 1-10 minutes
+    const endTime = new Date(startTime.getTime() + duration * 1000);
 
-  // Calculate call distribution
-  const statusCounts = calls.reduce((acc, call) => {
-    acc[call.status] = (acc[call.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const callDistribution = Object.entries(statusCounts).map(([name, count]) => ({
-    name,
-    value: (count / totalCalls) * 100,
-    color: name === 'success' ? '#10B981' : name === 'failed' ? '#EF4444' : '#F59E0B',
-    trend: faker.number.int({ min: -10, max: 10 }),
-    count,
-  }));
-
-  // Generate monthly data with realistic trends
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  const baseCallVolume = faker.number.int({ min: 300, max: 400 });
-  const monthlyGrowth = faker.number.int({ min: 5, max: 15 });
-
-  const monthlyCallData = months.map((month, index) => {
-    const growth = 1 + (monthlyGrowth / 100) * index;
-    const calls = Math.floor(baseCallVolume * growth);
-    const avgCostPerCall = faker.number.float({ min: 8, max: 12, precision: 0.01 });
-    return {
-      date: `${month} 2024`,
-      totalCalls: calls,
-      totalCost: calls * avgCostPerCall,
-      // calls: calls.map(() => ({
-      //   callId: faker.string.uuid(),
-      //   cost: avgCostPerCall,
-      //   duration: faker.number.int({ min: 120, max: 600 }),
-      //   timestamp: faker.date.recent().toISOString(),
-      //   status: faker.helpers.arrayElement(['success', 'failed', 'pending']),
-      //   type: faker.helpers.arrayElement(['inbound', 'outbound']),
-      // })),
-    };
-  });
-
-  const costAnalysis = months.map((month, index) => ({
-    category: `${month} 2024`,
-    amount: monthlyCallData[index].totalCost,
-  }));
-
-  // Generate regional data
-  const regions = ['North America', 'Europe', 'Asia Pacific', 'Latin America', 'Africa'];
-  const regionalData = regions.map(region => ({
-    name: region,
-    value: faker.number.int({ min: 100, max: 1000 }),
-    color: faker.helpers.arrayElement(['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']),
-    trend: faker.number.int({ min: -10, max: 10 }),
-    count: faker.number.int({ min: 50, max: 200 }),
-  }));
-
-  // Calculate realistic trends
-  const previousTotalMinutes = avgDuration * totalCalls * 0.9;
-  const previousTotalCalls = totalCalls * 0.9;
-  const previousTotalSpent = totalCost * 0.85;
-  const previousAvgCost = previousTotalSpent / previousTotalCalls;
-
-  return {
-    totalCallMinutes: avgDuration * totalCalls,
-    totalCallMinutesTrend: { value: ((avgDuration * totalCalls - previousTotalMinutes) / previousTotalMinutes) * 100, label: 'vs last period' },
-    numberOfCalls: totalCalls,
-    numberOfCallsTrend: { value: ((totalCalls - previousTotalCalls) / previousTotalCalls) * 100, label: 'vs last period' },
-    totalSpent: totalCost,
-    totalSpentTrend: { value: ((totalCost - previousTotalSpent) / previousTotalSpent) * 100, label: 'vs last period' },
-    avgCostPerCall: totalCost / totalCalls,
-    avgCostPerCallTrend: { value: ((totalCost / totalCalls - previousAvgCost) / previousAvgCost) * 100, label: 'vs last period' },
-    callDistribution,
-    costAnalysis,
-    monthlyCallData,
-    recentCalls: calls.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 10),
-    regionalData,
-  };
-};
-
-// Reports mock data
-export const reportsData = [
-  {
-    name: "Daily Performance Report",
-    type: "Performance",
-    date: new Date(2024, 0, 15),
-    status: "completed"
-  },
-  {
-    name: "Weekly Analytics Summary",
-    type: "Analytics",
-    date: new Date(2024, 0, 14),
-    status: "completed"
-  },
-  {
-    name: "Monthly User Activity",
-    type: "User Activity",
-    date: new Date(2024, 0, 13),
-    status: "in_progress"
-  },
-  {
-    name: "Regional Analysis Q4",
-    type: "Regional",
-    date: new Date(2024, 0, 12),
-    status: "completed"
-  },
-  {
-    name: "Cost Analysis Report",
-    type: "Financial",
-    date: new Date(2024, 0, 11),
-    status: "completed"
+    calls.push({
+      id: `call-${i + 1}`,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      duration,
+      cost: Math.round(duration * 0.002 * 100) / 100, // $0.002 per second
+      type: types[Math.floor(Math.random() * types.length)],
+      status: statuses[Math.floor(Math.random() * statuses.length)],
+      caller: `+1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
+      recipient: `+1${Math.floor(Math.random() * 9000000000 + 1000000000)}`,
+      notes: Math.random() > 0.5 ? 'Some notes about the call' : undefined
+    });
   }
-];
 
-export const scheduledReports = [
-  {
-    name: "Daily Performance Summary",
-    nextRun: new Date(2024, 0, 16),
-    frequency: "daily"
-  },
-  {
-    name: "Weekly Analytics Report",
-    nextRun: new Date(2024, 0, 21),
-    frequency: "weekly"
-  },
-  {
-    name: "Monthly Business Review",
-    nextRun: new Date(2024, 1, 1),
-    frequency: "monthly"
-  }
-];
+  return calls.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+};
 
 // Mock data service
-class MockDataService {
-  getCallHistory() {
-    throw new Error("Method not implemented.");
-  }
-  private calls: Call[] = generateMockCalls(100);
-  private analytics: Analytics = generateMockAnalytics();
+export const mockDataService = {
+  getCalls: async (): Promise<Call[]> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return generateMockCalls();
+  },
 
-  async getCalls(): Promise<Call[]> {
-    return Promise.resolve(this.calls);
-  }
-
-  async getAnalytics(): Promise<Analytics> {
-    return Promise.resolve(this.analytics);
-  }
-
-  async addCall(callData: Omit<Call, 'id' | 'timestamp' | 'cost'>): Promise<Call> {
+  addCall: async (callData: Partial<Call>): Promise<Call> => {
     const newCall: Call = {
-      id: faker.string.uuid(),
-      timestamp: new Date(),
-      cost: this.calculateCallCost(callData.duration),
+      id: Math.random().toString(36).substring(7),
+      startTime: new Date().toISOString(),
+      endTime: new Date().toISOString(),
+      duration: 0,
+      cost: 0,
+      type: 'outbound',
+      status: 'completed',
+      caller: '',
+      recipient: '',
       ...callData
     };
-    this.calls.unshift(newCall);
     return Promise.resolve(newCall);
-  }
+  },
 
-  private calculateCallCost(duration: number): number {
-    const ratePerMinute = 0.015;
-    return Number((duration * ratePerMinute).toFixed(2));
+  getAnalytics: async (): Promise<Analytics> => {
+    const mockCalls = generateMockCalls();
+    const now = new Date();
+    
+    return Promise.resolve({
+      calls: [],
+      results: Array.from({ length: 7 }, (_, i) => ({
+        date: new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        calls: Math.floor(Math.random() * 50),
+        cost: Math.random() * 1000
+      })),
+      totalCallMinutes: 1234,
+      totalCallMinutesTrend: 5.2,
+      numberOfCalls: 567,
+      numberOfCallsTrend: 3.1,
+      totalSpent: 9876.54,
+      totalSpentTrend: -2.3,
+      avgCostPerCall: 17.42,
+      avgCostPerCallTrend: 1.1,
+      monthlyTrend: Array.from({ length: 12 }, (_, i) => ({
+        date: new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString().split('T')[0],
+        calls: Math.floor(Math.random() * 1000),
+        cost: Math.random() * 5000
+      })),
+      callDistribution: [
+        { value: 45, name: 'Success', count: 450, color: '#4CAF50', trend: '+5%' },
+        { value: 35, name: 'Failed', count: 350, color: '#F44336', trend: '-2%' },
+        { value: 20, name: 'Pending', count: 200, color: '#FFC107', trend: '+1%' }
+      ],
+      recentCalls: mockCalls.slice(0, 10).map(call => ({
+        timestamp: call.startTime,
+        id: call.id,
+        phoneNumber: call.caller,
+        type: call.type,
+        status: call.status,
+        duration: call.duration,
+        cost: call.cost,
+        date: new Date(call.startTime).toISOString().split('T')[0]
+      })),
+      monthlyCallData: Array.from({ length: 12 }, (_, i) => ({
+        date: new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString().split('T')[0],
+        totalCalls: Math.floor(Math.random() * 1000),
+        totalCost: Math.random() * 5000,
+        calls: mockCalls.slice(0, 5).map(call => ({
+          callId: call.id,
+          cost: call.cost,
+          duration: call.duration,
+          timestamp: call.startTime,
+          status: call.status,
+          type: call.type
+        }))
+      })),
+      costAnalysis: [
+        { value: 40, label: 'Voice' },
+        { value: 30, label: 'Processing' },
+        { value: 30, label: 'Storage' }
+      ]
+    });
   }
-}
+};
 
-export const mockDataService = new MockDataService();
+export type { Call, Analytics };

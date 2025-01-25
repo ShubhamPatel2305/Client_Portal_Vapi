@@ -13,19 +13,60 @@ export interface Call {
 }
 
 export interface Analytics {
+  calls: never[];
+  results: Array<{
+    date: string;
+    calls: number;
+    cost: number;
+  }>;
   totalCallMinutes: number;
-  totalCallMinutesTrend: { value: number; label: string };
+  totalCallMinutesTrend: number;
   numberOfCalls: number;
-  numberOfCallsTrend: { value: number; label: string };
+  numberOfCallsTrend: number;
   totalSpent: number;
-  totalSpentTrend: { value: number; label: string };
+  totalSpentTrend: number;
   avgCostPerCall: number;
-  avgCostPerCallTrend: { value: number; label: string };
-  callDistribution: { name: string; value: number; color: string; trend: number; count: number }[];
-  costAnalysis: { category: string; amount: number }[];
-  monthlyCallData: { date: string; totalCalls: number; totalCost: number; calls: { callId: string; cost: number; duration: number; timestamp: string; status: 'success' | 'failed' | 'pending'; type: 'inbound' | 'outbound' }[] }[];
-  recentCalls: Call[];
-  regionalData: { name: string; value: number; color: string; trend: number; count: number }[];
+  avgCostPerCallTrend: number;
+  monthlyTrend: Array<{
+    date: string;
+    calls: number;
+    cost: number;
+  }>;
+  callDistribution: Array<{
+    value: number;
+    name: string;
+    count: number;
+    color: string;
+    trend: string;
+  }>;
+  recentCalls: Array<{
+    timestamp: string | number | Date;
+    id: string;
+    phoneNumber: string;
+    type: string;
+    status: string;
+    duration: number;
+    cost: number;
+    date: string;
+  }>;
+  monthlyCallData: Array<{
+    date: string;
+    totalCalls: number;
+    totalCost: number;
+    calls: Array<{
+      callId: string;
+      cost: number;
+      duration: number;
+      timestamp: string;
+      status: string;
+      type: string;
+    }>;
+  }>;
+  costAnalysis: Array<{
+    name: string;
+    value: number;
+    date?: string;
+  }>;
 }
 
 // Generate mock calls
@@ -44,87 +85,65 @@ const generateMockCalls = (count: number): Call[] => {
 };
 
 // Generate mock analytics
-const generateMockAnalytics = (): Analytics => {
-  const calls = generateMockCalls(100);
-  const totalCalls = calls.length;
-  const avgDuration = calls.reduce((sum, call) => sum + call.duration, 0) / totalCalls;
-  const totalCost = calls.reduce((sum, call) => sum + call.cost, 0);
-
-  // Calculate call distribution
-  const statusCounts = calls.reduce((acc, call) => {
-    acc[call.status] = (acc[call.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const callDistribution = Object.entries(statusCounts).map(([name, count]) => ({
-    name,
-    value: (count / totalCalls) * 100,
-    color: name === 'success' ? '#10B981' : name === 'failed' ? '#EF4444' : '#F59E0B',
-    trend: faker.number.int({ min: -10, max: 10 }),
-    count,
-  }));
-
-  // Generate monthly data with realistic trends
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  const baseCallVolume = faker.number.int({ min: 300, max: 400 });
-  const monthlyGrowth = faker.number.int({ min: 5, max: 15 });
-
-  const monthlyCallData = months.map((month, index) => {
-    const growth = 1 + (monthlyGrowth / 100) * index;
-    const calls = Math.floor(baseCallVolume * growth);
-    const avgCostPerCall = faker.number.float({ min: 8, max: 12, multipleOf: 0.01 });
-    return {
-      date: `${month} 2024`,
-      totalCalls: calls,
-      totalCost: calls * avgCostPerCall,
-      // calls: calls.map(() => ({
-      //   callId: faker.string.uuid(),
-      //   cost: avgCostPerCall,
-      //   duration: faker.number.int({ min: 120, max: 600 }),
-      //   timestamp: faker.date.recent().toISOString(),
-      //   status: faker.helpers.arrayElement(['success', 'failed', 'pending']),
-      //   type: faker.helpers.arrayElement(['inbound', 'outbound']),
-      // })),
-    };
-  });
-
-  const costAnalysis = months.map((month, index) => ({
-    category: `${month} 2024`,
-    amount: monthlyCallData[index].totalCost,
-  }));
-
-  // Generate regional data
-  const regions = ['North America', 'Europe', 'Asia Pacific', 'Latin America', 'Africa'];
-  const regionalData = regions.map(region => ({
-    name: region,
-    value: faker.number.int({ min: 100, max: 1000 }),
-    color: faker.helpers.arrayElement(['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']),
-    trend: faker.number.int({ min: -10, max: 10 }),
-    count: faker.number.int({ min: 50, max: 200 }),
-  }));
-
-  // Calculate realistic trends
-  const previousTotalMinutes = avgDuration * totalCalls * 0.9;
-  const previousTotalCalls = totalCalls * 0.9;
-  const previousTotalSpent = totalCost * 0.85;
-  const previousAvgCost = previousTotalSpent / previousTotalCalls;
-
+function generateMockAnalytics(): Analytics {
+  const mockCalls = generateMockCalls(100);
+  const now = new Date();
+  
   return {
-    totalCallMinutes: avgDuration * totalCalls,
-    totalCallMinutesTrend: { value: ((avgDuration * totalCalls - previousTotalMinutes) / previousTotalMinutes) * 100, label: 'vs last period' },
-    numberOfCalls: totalCalls,
-    numberOfCallsTrend: { value: ((totalCalls - previousTotalCalls) / previousTotalCalls) * 100, label: 'vs last period' },
-    totalSpent: totalCost,
-    totalSpentTrend: { value: ((totalCost - previousTotalSpent) / previousTotalSpent) * 100, label: 'vs last period' },
-    avgCostPerCall: totalCost / totalCalls,
-    avgCostPerCallTrend: { value: ((totalCost / totalCalls - previousAvgCost) / previousAvgCost) * 100, label: 'vs last period' },
-    callDistribution,
-    costAnalysis,
-    monthlyCallData,
-    recentCalls: calls.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 10),
-    regionalData,
+    calls: [],
+    results: Array.from({ length: 7 }, (_, i) => ({
+      date: new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      calls: Math.floor(Math.random() * 50),
+      cost: Math.random() * 1000
+    })),
+    totalCallMinutes: 1234,
+    totalCallMinutesTrend: 5.2,
+    numberOfCalls: 567,
+    numberOfCallsTrend: 3.1,
+    totalSpent: 9876.54,
+    totalSpentTrend: -2.3,
+    avgCostPerCall: 17.42,
+    avgCostPerCallTrend: 1.1,
+    monthlyTrend: Array.from({ length: 12 }, (_, i) => ({
+      date: new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString().split('T')[0],
+      calls: Math.floor(Math.random() * 1000),
+      cost: Math.random() * 5000
+    })),
+    callDistribution: [
+      { value: 45, name: 'Success', count: 450, color: '#4CAF50', trend: '+5%' },
+      { value: 35, name: 'Failed', count: 350, color: '#F44336', trend: '-2%' },
+      { value: 20, name: 'Pending', count: 200, color: '#FFC107', trend: '+1%' }
+    ],
+    recentCalls: mockCalls.slice(0, 10).map(call => ({
+      timestamp: call.timestamp,
+      id: call.id,
+      phoneNumber: call.phoneNumber,
+      type: call.type,
+      status: call.status,
+      duration: call.duration,
+      cost: call.cost,
+      date: call.timestamp.toISOString().split('T')[0]
+    })),
+    monthlyCallData: Array.from({ length: 12 }, (_, i) => ({
+      date: new Date(now.getFullYear(), now.getMonth() - i, 1).toISOString().split('T')[0],
+      totalCalls: Math.floor(Math.random() * 1000),
+      totalCost: Math.random() * 5000,
+      calls: mockCalls.slice(0, 5).map(call => ({
+        callId: call.id,
+        cost: call.cost,
+        duration: call.duration,
+        timestamp: call.timestamp.toISOString(),
+        status: call.status,
+        type: call.type
+      }))
+    })),
+    costAnalysis: [
+      { name: 'Voice', value: 40, date: '2022-01-01' },
+      { name: 'Processing', value: 30 },
+      { name: 'Storage', value: 30 }
+    ]
   };
-};
+}
 
 // Reports mock data
 export const reportsData = [

@@ -37,30 +37,36 @@ export default function UserEngagementReport({ data }: UserEngagementReportProps
   const engagementMetrics = [
     {
       name: 'Active Users',
-      value: data.numberOfCalls,
+      value: data.numberOfCalls || 0,
       icon: User,
-      trend: data.numberOfCallsTrend,
+      trend: data.numberOfCallsTrend || 0,
       color: colors.users,
       description: 'Total unique users making calls',
     },
     {
       name: 'Average Call Duration',
-      value: Math.round(data.totalCallMinutes / data.numberOfCalls),
+      value: data.numberOfCalls ? Math.round(data.totalCallMinutes / data.numberOfCalls) : 0,
       icon: Clock,
-      trend: data.totalCallMinutesTrend,
+      trend: data.totalCallMinutesTrend || 0,
       suffix: ' mins',
       color: colors.duration,
-      description: 'Average time spent on calls',
+      description: 'Average duration of calls',
     },
     {
-      name: 'Calls per User',
-      value: Math.round(data.numberOfCalls / Math.max(1, data.numberOfCalls * 0.7)), // Ensure no division by zero
+      name: 'Total Calls',
+      value: data.numberOfCalls || 0,
       icon: Phone,
-      trend: data.numberOfCallsTrend,
+      trend: data.numberOfCallsTrend || 0,
       color: colors.calls,
-      description: 'Average number of calls per user',
+      description: 'Total number of calls made',
     },
   ];
+
+  const recentCalls = data.recentCalls || [];
+  const callTimeline = recentCalls.slice(0, 5).map((call) => ({
+    ...call,
+    timestamp: new Date(call.timestamp).toLocaleString(),
+  }));
 
   return (
     <motion.div
@@ -131,7 +137,7 @@ export default function UserEngagementReport({ data }: UserEngagementReportProps
             </div>
             <AreaChart
               className="h-72"
-              data={data.monthlyCallData}
+              data={data.monthlyCallData || []}
               index="date"
               categories={['totalCalls']}
               colors={[colors.calls]}
@@ -150,20 +156,13 @@ export default function UserEngagementReport({ data }: UserEngagementReportProps
           <Card className="p-6">
             <Title className="mb-6">Recent User Activity</Title>
             <List>
-              {data.recentCalls.slice(0, 5).map((call) => (
+              {callTimeline.map((call) => (
                 <ListItem key={call.id}>
                   <div className="flex justify-between items-center w-full">
                     <div className="space-y-1">
                       <Text className="font-medium">{call.phoneNumber}</Text>
                       <div className="flex items-center space-x-2">
-                        <Text className="text-sm text-gray-500">
-                          {new Date(call.date).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </Text>
+                        <Text className="text-sm text-gray-500">{call.timestamp}</Text>
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                             call.status === 'success'

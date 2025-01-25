@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { ResponsiveLine } from '@nivo/line';
 
 interface DataPoint {
@@ -28,7 +28,7 @@ interface LineChartProps {
   areaOpacity?: number;
 }
 
-export default function LineChart({
+const LineChart: React.FC<LineChartProps> = ({
   data,
   height = 400,
   enablePoints = true,
@@ -43,7 +43,7 @@ export default function LineChart({
   pointBorderColor = '#ffffff',
   enableArea = false,
   areaOpacity = 0.2
-}: LineChartProps) {
+}) => {
   return (
     <div style={{ height }}>
       <ResponsiveLine
@@ -156,4 +156,6 @@ export default function LineChart({
       />
     </div>
   );
-}
+};
+
+export default LineChart;

@@ -11,6 +11,18 @@ export const formatDateTime = (dateString: string): string => {
   return format(date, 'MMM d, yyyy h:mm a');
 };
 
+export const formatDuration = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  
+  if (minutes === 0) {
+    return `${remainingSeconds}s`;
+  } else if (remainingSeconds === 0) {
+    return `${minutes}m`;
+  }
+  return `${minutes}m ${remainingSeconds}s`;
+};
+
 export const getCurrentMonthKey = (): string => {
   const now = new Date();
   return format(now, 'yyyy-MM');

@@ -1,18 +1,20 @@
 import { Card, Grid, Metric, Text, Tab, TabGroup, TabList, TabPanel, TabPanels } from '@tremor/react';
-import { Analytics } from '../../lib/api/vapiService';
+import { Analytics as VapiAnalytics } from '../../lib/api/vapiService';
 import PerformanceReport from './PerformanceReport';
 import CallAnalyticsReport from './CallAnalyticsReport';
 import UserEngagementReport from './UserEngagementReport';
 // import RegionalReport from './RegionalReport';
 
 interface ComprehensiveReportProps {
-  data: Analytics | null;
+  data: VapiAnalytics;
   loading: boolean;
   dateRange: { from: Date; to: Date };
 }
 
 export default function ComprehensiveReport({ data, loading, dateRange }: ComprehensiveReportProps) {
   if (!data) return null;
+
+  const calls = data.calls || [];
 
   return (
     <div className="space-y-6">
@@ -23,9 +25,9 @@ export default function ComprehensiveReport({ data, loading, dateRange }: Compre
           decorationColor="blue"
         >
           <Text className="text-blue-600">Total Call Minutes</Text>
-          <Metric className="mt-2 text-blue-900">{data.totalCallMinutes.toFixed(0)}</Metric>
+          <Metric className="mt-2 text-blue-900">{data.totalCallMinutes?.toFixed(0) || '0'}</Metric>
           <Text className="mt-2 text-blue-600">
-            {data.totalCallMinutesTrend >= 0 ? '↑' : '↓'} {Math.abs(data.totalCallMinutesTrend)}%
+            {data.totalCallMinutesTrend >= 0 ? '↑' : '↓'} {Math.abs(data.totalCallMinutesTrend || 0)}%
           </Text>
         </Card>
         <Card
@@ -34,9 +36,9 @@ export default function ComprehensiveReport({ data, loading, dateRange }: Compre
           decorationColor="purple"
         >
           <Text className="text-purple-600">Number of Calls</Text>
-          <Metric className="mt-2 text-purple-900">{data.numberOfCalls}</Metric>
+          <Metric className="mt-2 text-purple-900">{data.numberOfCalls || 0}</Metric>
           <Text className="mt-2 text-purple-600">
-            {data.numberOfCallsTrend >= 0 ? '↑' : '↓'} {Math.abs(data.numberOfCallsTrend)}%
+            {data.numberOfCallsTrend >= 0 ? '↑' : '↓'} {Math.abs(data.numberOfCallsTrend || 0)}%
           </Text>
         </Card>
         <Card
@@ -45,9 +47,9 @@ export default function ComprehensiveReport({ data, loading, dateRange }: Compre
           decorationColor="emerald"
         >
           <Text className="text-emerald-600">Total Spent</Text>
-          <Metric className="mt-2 text-emerald-900">${data.totalSpent.toFixed(2)}</Metric>
+          <Metric className="mt-2 text-emerald-900">${(data.totalSpent || 0).toFixed(2)}</Metric>
           <Text className="mt-2 text-emerald-600">
-            {data.totalSpentTrend >= 0 ? '↑' : '↓'} {Math.abs(data.totalSpentTrend)}%
+            {data.totalSpentTrend >= 0 ? '↑' : '↓'} {Math.abs(data.totalSpentTrend || 0)}%
           </Text>
         </Card>
         <Card
@@ -56,9 +58,9 @@ export default function ComprehensiveReport({ data, loading, dateRange }: Compre
           decorationColor="amber"
         >
           <Text className="text-amber-600">Avg Cost per Call</Text>
-          <Metric className="mt-2 text-amber-900">${data.avgCostPerCall.toFixed(2)}</Metric>
+          <Metric className="mt-2 text-amber-900">${(data.avgCostPerCall || 0).toFixed(2)}</Metric>
           <Text className="mt-2 text-amber-600">
-            {data.avgCostPerCallTrend >= 0 ? '↑' : '↓'} {Math.abs(data.avgCostPerCallTrend)}%
+            {data.avgCostPerCallTrend >= 0 ? '↑' : '↓'} {Math.abs(data.avgCostPerCallTrend || 0)}%
           </Text>
         </Card>
       </Grid>
@@ -74,12 +76,12 @@ export default function ComprehensiveReport({ data, loading, dateRange }: Compre
           <TabPanels>
             <TabPanel>
               <div className="mt-4">
-                <PerformanceReport data={data} dateRange={dateRange} />
+                <PerformanceReport data={calls} dateRange={dateRange} />
               </div>
             </TabPanel>
             <TabPanel>
               <div className="mt-4">
-                <CallAnalyticsReport data={data} loading={loading} />
+                <CallAnalyticsReport data={calls} loading={loading} />
               </div>
             </TabPanel>
             <TabPanel>

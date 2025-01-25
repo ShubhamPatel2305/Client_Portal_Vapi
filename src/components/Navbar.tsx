@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Phone, BarChart3, Settings, LogOut } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';

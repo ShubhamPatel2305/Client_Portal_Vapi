@@ -32,16 +32,17 @@ export default function Settings() {
     companyName: ''
   });
 
-  // Initial load
   useEffect(() => {
+    let unsubscribe: () => void = () => {};
+    
     const initializeSettings = async () => {
       if (!user) {
         setIsLoading(false);
         return;
       }
-
+  
       try {
-        // Set initial data from user profile immediately
+        // Set initial data from user profile
         const [firstName = '', lastName = ''] = (user.displayName || '').split(' ');
         const initialSettings = {
           firstName,
@@ -50,27 +51,25 @@ export default function Settings() {
           phone: '',
           companyName: ''
         };
-
-        // Set initial data immediately to prevent loading state
+  
         setSettings(initialSettings);
         setIsLoading(false);
-
-        // Try to load from Firestore in background
+  
+        // Load Firestore data
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          const firestoreSettings = {
+          setSettings({
             firstName: userData.firstName || firstName,
             lastName: userData.lastName || lastName,
             email: user.email || '',
             phone: userData.phone || '',
             companyName: userData.companyName || ''
-          };
-          setSettings(firestoreSettings);
+          });
         } else {
-          // Create initial document if it doesn't exist
+          // Create initial document
           await setDoc(userDocRef, {
             ...initialSettings,
             createdAt: new Date().toISOString()
@@ -78,83 +77,99 @@ export default function Settings() {
         }
       } catch (error) {
         console.error('Error initializing settings:', error);
+        setIsLoading(false);
       }
     };
-
+  
     initializeSettings();
+  
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [user]);
+  
 
-  const handleSaveSettings = async () => {
-    if (!user) {
-      toast.error('You must be logged in to save settings');
-      return;
+const handleSaveSettings = async () => {
+  if (!user) {
+    toast.error('You must be logged in to save settings');
+    return;
+  }
+
+  if (!settings.firstName.trim() || !settings.lastName.trim()) {
+    toast.error('First name and last name are required');
+    return;
+  }
+
+  setIsSaving(true);
+  
+  try {
+    // Batch all Firebase operations
+    const updates = [];
+    
+    // 1. Update Firebase Auth Profile
+    const fullName = `${settings.firstName.trim()} ${settings.lastName.trim()}`;
+    updates.push(updateProfile(user, { displayName: fullName }));
+
+    // 2. Update email if changed
+    const trimmedEmail = settings.email.trim();
+    if (trimmedEmail && trimmedEmail !== user.email) {
+      updates.push(updateEmail(user, trimmedEmail));
+      updates.push(sendEmailVerification(user));
     }
 
-    if (!settings.firstName.trim() || !settings.lastName.trim()) {
-      toast.error('First name and last name are required');
-      return;
+    // 3. Save to Firestore
+    const userDocRef = doc(db, 'users', user.uid);
+    const settingsData = {
+      firstName: settings.firstName.trim(),
+      lastName: settings.lastName.trim(),
+      email: trimmedEmail || user.email || '',
+      phone: settings.phone.trim(),
+      companyName: settings.companyName.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    updates.push(setDoc(userDocRef, settingsData, { merge: true }));
+
+    // Wait for all updates to complete
+    await Promise.all(updates);
+
+    // Update local state
+    setSettings({
+      firstName: settingsData.firstName,
+      lastName: settingsData.lastName,
+      email: settingsData.email,
+      phone: settingsData.phone,
+      companyName: settingsData.companyName
+    });
+    
+    toast.success('Settings saved successfully!');
+    setShowSaveSuccess(true);
+    setIsSaving(false);
+
+    // Reset success message after delay
+    setTimeout(() => {
+      setShowSaveSuccess(false);
+    }, 2000);
+
+  } catch (error: any) {
+    console.error('Error saving settings:', error);
+    setIsSaving(false);
+    setShowSaveSuccess(false);
+    
+    if (error.code === 'auth/requires-recent-login') {
+      toast.error('For security reasons, please log out and log back in to change your email.');
+    } else if (error.code === 'auth/email-already-in-use') {
+      toast.error('This email is already in use by another account.');
+    } else if (error.code === 'auth/invalid-email') {
+      toast.error('Please enter a valid email address.');
+    } else {
+      toast.error('Failed to save settings. Please try again.');
     }
-
-    setIsSaving(true);
-    try {
-      // Update Firebase Auth Profile
-      const fullName = `${settings.firstName.trim()} ${settings.lastName.trim()}`;
-      await updateProfile(user, { displayName: fullName });
-
-      // Update email if changed
-      const trimmedEmail = settings.email.trim();
-      if (trimmedEmail && trimmedEmail !== user.email) {
-        await updateEmail(user, trimmedEmail);
-        // Send verification email
-        await sendEmailVerification(user);
-        toast('Please verify your new email address. A verification link has been sent.', {
-          icon: 'ℹ️'
-        });
-      }
-
-      // Save to Firestore
-      const userDocRef = doc(db, 'users', user.uid);
-      const settingsData: UserSettings = {
-        firstName: settings.firstName.trim(),
-        lastName: settings.lastName.trim(),
-        email: trimmedEmail || user.email || '',
-        phone: settings.phone.trim(),
-        companyName: settings.companyName.trim()
-      };
-
-      await setDoc(userDocRef, {
-        ...settingsData,
-        updatedAt: new Date().toISOString()
-      });
-
-      // Update local state
-      setSettings(settingsData);
-      
-      // Show success message and update button state
-      toast.success('Settings saved successfully!');
-      setShowSaveSuccess(true);
-
-      // Reset button state after delay
-      setTimeout(() => {
-        setShowSaveSuccess(false);
-        setIsSaving(false);
-      }, 2000);
-
-    } catch (error: any) {
-      console.error('Error saving settings:', error);
-      setIsSaving(false);
-      
-      if (error.code === 'auth/requires-recent-login') {
-        toast.error('For security reasons, please log out and log back in to change your email.');
-      } else if (error.code === 'auth/email-already-in-use') {
-        toast.error('This email is already in use by another account.');
-      } else if (error.code === 'auth/invalid-email') {
-        toast.error('Please enter a valid email address.');
-      } else {
-        toast.error('Failed to save settings. Please try again.');
-      }
-    }
-  };
+  }
+};
 
   const handlePasswordReset = async (e: React.MouseEvent) => {
     e.preventDefault();

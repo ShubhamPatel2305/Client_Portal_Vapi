@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card, Grid, Metric, Text, ProgressBar } from '@tremor/react';
 import { PhoneCall, Clock, DollarSign, Calculator } from 'lucide-react';
 import type { CallData } from '../../lib/api/vapiService';

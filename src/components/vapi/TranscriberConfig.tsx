@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card } from '@tremor/react';
 import { motion } from 'framer-motion';
-import { Mic, Settings, Sliders, Volume2, Info, Globe } from 'lucide-react';
+import { Mic, Settings, Sliders,  Info, Globe } from 'lucide-react';
 
 interface TranscriberConfigProps {
   config: {

@@ -25,6 +25,7 @@ export interface Analysis {
 }
 
 export interface CallData {
+  duration: number;
   id: string;
   startedAt: string;
   endedAt?: string;

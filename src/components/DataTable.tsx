@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { List } from 'react-virtualized';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 
@@ -53,8 +53,8 @@ export default function DataTable<T>({
       });
     }
     if (searchTerm) {
-      sortedItems = sortedItems.filter((item) =>
-        Object.values(item).some((value) =>
+      sortedItems = sortedItems.filter((item: T) =>
+        Object.values(item as Record<keyof T, unknown>).some((value) =>
           String(value).toLowerCase().includes(searchTerm.toLowerCase())
         )
       );

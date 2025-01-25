@@ -13,7 +13,7 @@ import {
   Text,
 } from '@tremor/react';
 import { format } from 'date-fns';
-import { Download, Eye } from 'lucide-react';
+import { Download} from 'lucide-react';
 
 interface InvoiceItem {
   description: string;

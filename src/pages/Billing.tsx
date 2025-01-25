@@ -1,17 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { vapiService } from '../lib/api/vapiService';
-import { BillingStats } from '../components/billing/BillingStats';
+
 import { CallAnalytics } from '../components/billing/CallAnalytics';
 import InvoiceList from '../components/billing/InvoiceList';
 import jsPDF from 'jspdf';
 import {
   format,
-  subDays,
-  startOfDay,
-  endOfDay,
-  startOfMonth,
-  endOfMonth,
   startOfWeek,
   endOfWeek,
   addDays,
@@ -30,17 +25,9 @@ import {
   BarChart,
   DonutChart,
   AreaChart,
-  Table,
-  TableHead,
-  TableRow,
-  TableHeaderCell,
-  TableBody,
-  TableCell,
-  Flex,
   Button,
   Select,
   SelectItem,
-  Badge,
 } from '@tremor/react';
 import {
   Download,
@@ -49,7 +36,6 @@ import {
   Clock,
   Phone,
   Calculator,
-  LayoutDashboard,
   FileText,
   TrendingUp,
   BarChart2,
@@ -162,129 +148,7 @@ interface CostBreakdownData {
 }
 
 // Sample invoice data
-const sampleInvoices: Invoice[] = [
-  {
-    id: 'INV-2025-001',
-    date: '2025-01-01',
-    dueDate: '2025-01-15',
-    amount: 1250.00,
-    status: 'paid',
-    items: [
-      {
-        description: 'API Calls',
-        quantity: 1,
-        rate: 1250.00,
-        amount: 1250.00,
-      },
-    ],
-    companyDetails: {
-      name: 'Company Name',
-      address: '123 Main St, Anytown, USA',
-      phone: '555-555-5555',
-      email: 'info@example.com',
-      website: 'example.com',
-    },
-    clientDetails: {
-      name: 'Client Name',
-      address: '456 Elm St, Anytown, USA',
-      phone: '555-555-5555',
-      email: 'client@example.com',
-    },
-    paymentDetails: {
-      bankName: 'Bank of America',
-      accountNumber: '1234567890',
-      ifscCode: 'BOFAUS3N',
-      swiftCode: 'BOFAUS3NXXX',
-    },
-    notes: '',
-    terms: '',
-  },
-  {
-    id: 'INV-2024-012',
-    date: '2024-12-01',
-    dueDate: '2024-12-15',
-    amount: 980.50,
-    status: 'paid',
-    items: [
-      {
-        description: 'API Calls',
-        quantity: 1,
-        rate: 980.50,
-        amount: 980.50,
-      },
-    ],
-    companyDetails: {
-      name: 'Company Name',
-      address: '123 Main St, Anytown, USA',
-      phone: '555-555-5555',
-      email: 'info@example.com',
-      website: 'example.com',
-    },
-    clientDetails: {
-      name: 'Client Name',
-      address: '456 Elm St, Anytown, USA',
-      phone: '555-555-5555',
-      email: 'client@example.com',
-    },
-    paymentDetails: {
-      bankName: 'Bank of America',
-      accountNumber: '1234567890',
-      ifscCode: 'BOFAUS3N',
-      swiftCode: 'BOFAUS3NXXX',
-    },
-    notes: '',
-    terms: '',
-  },
-  {
-    id: 'INV-2024-011',
-    date: '2024-11-01',
-    dueDate: '2024-11-15',
-    amount: 1100.75,
-    status: 'paid',
-    items: [
-      {
-        description: 'API Calls',
-        quantity: 1,
-        rate: 1100.75,
-        amount: 1100.75,
-      },
-    ],
-    companyDetails: {
-      name: 'Company Name',
-      address: '123 Main St, Anytown, USA',
-      phone: '555-555-5555',
-      email: 'info@example.com',
-      website: 'example.com',
-    },
-    clientDetails: {
-      name: 'Client Name',
-      address: '456 Elm St, Anytown, USA',
-      phone: '555-555-5555',
-      email: 'client@example.com',
-    },
-    paymentDetails: {
-      bankName: 'Bank of America',
-      accountNumber: '1234567890',
-      ifscCode: 'BOFAUS3N',
-      swiftCode: 'BOFAUS3NXXX',
-    },
-    notes: '',
-    terms: '',
-  },
-];
 
-const getStatusColor = (status: Invoice['status']) => {
-  switch (status) {
-    case 'paid':
-      return 'emerald';
-    case 'pending':
-      return 'yellow';
-    case 'overdue':
-      return 'red';
-    default:
-      return 'gray';
-  }
-};
 
 const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
@@ -316,7 +180,7 @@ export default function Billing() {
     hourlyDistribution: [],
     weeklyTrend: [],
   });
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [costBreakdownPeriod, setCostBreakdownPeriod] = useState<'daily' | 'weekly'>('weekly');
   const [costBreakdownData, setCostBreakdownData] = useState<CostBreakdownData[]>([]);
@@ -336,15 +200,7 @@ export default function Billing() {
     'December',
   ];
 
-  const handleMonthChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newMonth = parseInt(event.target.value);
-    setSelectedMonth(newMonth);
-  };
 
-  const handleYearChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newYear = parseInt(event.target.value);
-    setSelectedYear(newYear);
-  };
 
   const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
@@ -369,7 +225,6 @@ export default function Billing() {
       const avgCost = totalCost / calls.length;
 
       // Calculate cost trend for the current month
-      const currentDate = new Date();
       const costTrend = Array.from({ length: endDate.getDate() }, (_, i) => {
         const date = new Date(selectedYear, selectedMonth, i + 1);
         const dailyCalls = calls.filter((call) => {
@@ -462,7 +317,6 @@ export default function Billing() {
   };
 
   const generateCostBreakdownData = (period: 'daily' | 'weekly') => {
-    const selectedMonthDate = new Date(Number(selectedYear), Number(selectedMonth), 1);
     let data: CostBreakdownData[] = [];
 
     if (period === 'daily') {
@@ -632,7 +486,7 @@ export default function Billing() {
       // Company Name in top edge
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(28);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('TOPEDGE', doc.internal.pageSize.width / 2, 25, { align: 'center' });
       
       // Invoice Title
@@ -650,11 +504,12 @@ export default function Billing() {
       doc.setFillColor(241, 245, 249);
       doc.roundedRect(20, 100, 80, 50, 3, 3, 'F');
       doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'bold');
       doc.text('From:', 25, 110);
       doc.setTextColor(15, 23, 42);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('TOPEDGE TECHNOLOGIES', 25, 117);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text(invoice.companyDetails?.address || '', 25, 125);
       doc.text(`Phone: ${invoice.companyDetails?.phone || ''}`, 25, 140);
       doc.text(`Email: ${invoice.companyDetails?.email || ''}`, 25, 145);
@@ -663,11 +518,12 @@ export default function Billing() {
       doc.setFillColor(241, 245, 249);
       doc.roundedRect(110, 100, 80, 50, 3, 3, 'F');
       doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'bold');
       doc.text('Bill To:', 115, 110);
       doc.setTextColor(15, 23, 42);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text(invoice.clientDetails?.name || '', 115, 117);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text(invoice.clientDetails?.address || '', 115, 125);
       doc.text(`Phone: ${invoice.clientDetails?.phone || ''}`, 115, 140);
       doc.text(`Email: ${invoice.clientDetails?.email || ''}`, 115, 145);
@@ -676,7 +532,7 @@ export default function Billing() {
       doc.setFillColor(241, 245, 249);
       doc.rect(20, 160, 170, 10, 'F');
       doc.setTextColor(51, 65, 85);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('DESCRIPTION', 25, 167);
       doc.text('QTY', 95, 167);
       doc.text('RATE', 125, 167);
@@ -690,7 +546,7 @@ export default function Billing() {
           doc.rect(20, y - 4, 170, 10, 'F');
         }
 
-        doc.setFont(undefined, 'normal');
+        doc.setFont('helvetica', 'normal');
         doc.setTextColor(15, 23, 42);
         doc.text(item.description, 25, y);
         doc.text(item.quantity.toString(), 95, y);
@@ -704,9 +560,9 @@ export default function Billing() {
       doc.setFillColor(241, 245, 249);
       doc.roundedRect(20, y, 110, 50, 3, 3, 'F');
       doc.setTextColor(71, 85, 105);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Payment Details', 25, y + 10);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(15, 23, 42);
       doc.text(`Bank Name: ${invoice.paymentDetails?.bankName || ''}`, 25, y + 20);
       doc.text(`Account No: ${invoice.paymentDetails?.accountNumber || ''}`, 25, y + 28);
@@ -727,7 +583,7 @@ export default function Billing() {
       doc.roundedRect(totalBoxX, totalBoxY, totalBoxWidth, totalBoxHeight, 3, 3, 'S');
 
       // Add total text with improved styling
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.setTextColor(71, 85, 105);
       doc.setFontSize(12);
       doc.text('TOTAL AMOUNT', totalBoxX + 5, totalBoxY + 15);
@@ -741,7 +597,7 @@ export default function Billing() {
 
       // Add signature
       doc.setFontSize(10);
-      doc.setFont(undefined, 'italic');
+      doc.setFont('helvetica', 'italic');
       doc.setTextColor(59, 130, 246);
       doc.text('TopEdge Director', signatureX, signatureY);
       
@@ -751,7 +607,7 @@ export default function Billing() {
       doc.line(signatureX, signatureY + 5, signatureX + 45, signatureY + 5);
       
       // Add "Authorized Signature" text
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(71, 85, 105);
       doc.setFontSize(8);
       doc.text('Authorized Signature', signatureX, signatureY + 12);
@@ -773,9 +629,9 @@ export default function Billing() {
       // Add stamp text
       doc.setTextColor(59, 130, 246);
       doc.setFontSize(8);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('TOPEDGE', stampX, stampY - 5, { align: 'center' });
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.text('VERIFIED', stampX, stampY + 2, { align: 'center' });
       doc.setFontSize(6);
       doc.text(format(new Date(), 'dd/MM/yyyy'), stampX, stampY + 8, { align: 'center' });
@@ -785,17 +641,17 @@ export default function Billing() {
       doc.setFillColor(241, 245, 249);
       doc.roundedRect(20, y, 170, 40, 3, 3, 'F');
       doc.setTextColor(71, 85, 105);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.text('Terms & Conditions', 25, y + 10);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(15, 23, 42);
       doc.text(invoice.terms || 'Standard terms and conditions apply', 25, y + 17);
       
       doc.setTextColor(71, 85, 105);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Notes', 25, y + 27);
-      doc.setFont(undefined, 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setTextColor(15, 23, 42);
       doc.text(invoice.notes || 'Thank you for your business!', 25, y + 34);
 
@@ -1017,7 +873,9 @@ export default function Billing() {
                     data={billingData.costDistribution}
                     category="value"
                     index="category"
-                    valueFormatter={(value) => `$${value.toFixed(2)}`}
+                    valueFormatter={(value: number, category: string, formattedValue: string) =>
+                      category === "cost" ? `$${value.toFixed(2)}` : value.toString()
+                    }
                     colors={["indigo", "violet", "blue", "cyan"]}
                     showAnimation={true}
                     showTooltip={true}
@@ -1040,7 +898,9 @@ export default function Billing() {
                     index="week"
                     categories={["calls"]}
                     colors={["blue"]}
-                    valueFormatter={(value) => value.toString()}
+                    valueFormatter={(value: number, category: string, formattedValue: string) =>
+                      category === "cost" ? `$${value.toFixed(2)}` : value.toString()
+                    }
                     showAnimation={true}
                     showTooltip={true}
                     showLegend={true}
@@ -1060,7 +920,7 @@ export default function Billing() {
                     index="hour"
                     categories={["calls", "cost"]}
                     colors={["blue", "green"]}
-                    valueFormatter={(value: number, category: string) =>
+                    valueFormatter={(value: number, category: string, formattedValue: string) =>
                       category === "cost" ? `$${value.toFixed(2)}` : value.toString()
                     }
                     showAnimation={true}
@@ -1098,7 +958,9 @@ export default function Billing() {
                     index="date"
                     categories={["cost"]}
                     colors={["indigo"]}
-                    valueFormatter={(value) => `$${value.toFixed(2)}`}
+                    valueFormatter={(value: number, category: string, formattedValue: string) =>
+                      category === "cost" ? `$${value.toFixed(2)}` : value.toString()
+                    }
                     showAnimation={true}
                     showTooltip={true}
                     showLegend={true}
@@ -1149,7 +1011,7 @@ export default function Billing() {
                       index="date"
                       categories={["calls", "cost"]}
                       colors={["blue", "emerald"]}
-                      valueFormatter={(value: number, category: string) =>
+                      valueFormatter={(value: number, category: string, formattedValue: string) =>
                         category === "cost" ? `$${value.toFixed(2)}` : value.toString()
                       }
                       showAnimation={true}

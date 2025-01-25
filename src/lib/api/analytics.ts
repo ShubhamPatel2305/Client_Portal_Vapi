@@ -1,8 +1,14 @@
-import { mockDataService } from '../services/mockData';
+import { mockDataService, type Call } from '../services/mockData';
 
 // Mock data for trends
-const generateTrendData = () => {
-  const data = [];
+interface TrendData {
+  date: string;
+  calls: number;
+  duration: number;
+}
+
+const generateTrendData = (): TrendData[] => {
+  const data: TrendData[] = [];
   const now = new Date();
   
   for (let i = 30; i >= 0; i--) {
@@ -18,7 +24,12 @@ const generateTrendData = () => {
 };
 
 // Mock data for distribution
-const distributionData = [
+interface DistributionData {
+  name: string;
+  value: number;
+}
+
+const distributionData: DistributionData[] = [
   { name: 'Inbound', value: 35 },
   { name: 'Outbound', value: 45 },
   { name: 'Automated', value: 20 }
@@ -27,12 +38,11 @@ const distributionData = [
 export const analyticsApi = {
   getDashboardData: async () => {
     const calls = await mockDataService.getCalls();
-    const analytics = await mockDataService.getAnalytics();
 
     return {
       totalCalls: calls.length,
-      avgCallDuration: calls.reduce((acc, call) => acc + call.duration, 0) / calls.length,
-      totalCost: calls.reduce((acc, call) => acc + call.cost, 0),
+      avgCallDuration: calls.reduce((acc: number, call: Call) => acc + call.duration, 0) / calls.length,
+      totalCost: calls.reduce((acc: number, call: Call) => acc + call.cost, 0),
       activeUsers: 25,
       trends: generateTrendData(),
       distribution: distributionData,
@@ -41,11 +51,12 @@ export const analyticsApi = {
   },
 
   getAnalyticsData: async () => {
+    const calls = await mockDataService.getCalls();
     return {
       trends: generateTrendData(),
       distribution: distributionData,
       performance: {
-        successRate: 95,
+        successRate: (calls.filter(call => call.status === 'completed').length / calls.length) * 100,
         avgResponseTime: 2.3,
         satisfaction: 4.8
       }

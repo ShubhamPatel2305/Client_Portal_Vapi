@@ -66,7 +66,7 @@ export default function App() {
               <Route path="/vapi" element={<VapiAnalytics />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/reports" element={<Reports />} />
-              <Route path="/team" element={<Team />} />
+              {/* <Route path="/team" element={<Team />} /> */}
               <Route path="/settings" element={<Settings />} />
               <Route path="/support" element={<Support />} />
               <Route path="/billing" element={<Billing />} />

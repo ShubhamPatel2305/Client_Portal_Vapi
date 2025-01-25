@@ -1,4 +1,3 @@
-import React from 'react';
 import { Card, Text, Metric, ProgressBar } from '@tremor/react';
 import { Users, Phone, Clock } from 'lucide-react';
 

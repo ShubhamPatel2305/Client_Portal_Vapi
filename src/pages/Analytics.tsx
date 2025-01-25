@@ -32,14 +32,7 @@ import {
   Activity as ActivityIcon,
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
-import axios from 'axios';
 
-interface TrendData {
-  totalCallMinutesTrend: number;
-  numberOfCallsTrend: number;
-  totalSpentTrend: number;
-  costPerMinuteTrend: number;
-}
 
 interface CallData {
   costBreakdown: any;
@@ -657,7 +650,7 @@ const Analytics: React.FC = () => {
   });
   const [data, setData] = useState<AnalyticsType | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('performance');
+  const [] = useState('performance');
 
   const getDateRange = (range: string): { startDate: Date; endDate: Date } => {
     const endDate = new Date();
@@ -778,6 +771,20 @@ const Analytics: React.FC = () => {
         }, [] as Array<{ date: string; calls: number; minutes: number; cost: number }>)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
 
+        costBreakdown: [
+          {
+            name: 'Voice Calls',
+            value: totalCost * 0.7
+          },
+          {
+            name: 'AI Processing',
+            value: totalCost * 0.2
+          },
+          {
+            name: 'Other Services',
+            value: totalCost * 0.1
+          }
+        ],
         peakHours: Array.from({ length: 24 }, (_, hour) => {
           const hourCalls = filteredCalls.filter(call => new Date(call.startedAt).getHours() === hour);
           const successfulCalls = hourCalls.filter(call => 

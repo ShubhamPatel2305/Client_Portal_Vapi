@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { VapiClient } from '@vapi-ai/server-sdk';
+import { getApiKey } from './credentialsService';
 
 const VAPI_BASE_URL = 'https://api.vapi.ai';
-const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
 
 interface Cost {
   type: string;
@@ -212,17 +212,17 @@ interface ListCallsParams {
   updatedAtLe?: string;
 }
 
-const vapiClient = axios.create({
-  baseURL: VAPI_BASE_URL,
-  headers: {
-    'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
+const getHeaders = () => ({
+  'Authorization': `Bearer ${getApiKey()}`,
+  'Content-Type': 'application/json'
 });
 
 export const fetchVapiCalls = async (params?: ListCallsParams): Promise<VapiCall[]> => {
   try {
-    const response = await vapiClient.get('/call', { params });
+    const response = await axios.get(`${VAPI_BASE_URL}/call`, { 
+      params,
+      headers: getHeaders()
+    });
     return response.data;
   } catch (error) {
     console.error('Error fetching Vapi calls:', error);
@@ -230,83 +230,7 @@ export const fetchVapiCalls = async (params?: ListCallsParams): Promise<VapiCall
   }
 };
 
-export const fetchAnalytics = async (timeRange: string) => {
-  try {
-    const response = await fetch('https://api.vapi.ai/analytics', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${VAPI_API_KEY}`,
-      },
-      body: JSON.stringify({ timeRange }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch analytics data');
-    }
-
-    const data = await response.json();
-    console.log(data);  
-    
-    // Process and transform the data
-    return {
-      totalCalls: data.totalCalls || 0,
-      totalDuration: data.totalDuration || 0,
-      averageCallDuration: data.averageCallDuration || 0,
-      totalCost: data.totalCost || 0,
-      successRate: data.successRate || 0,
-      callsByDay: data.callsByDay || [],
-      callOutcomes: data.callOutcomes || [],
-      customerSentiment: data.customerSentiment || [],
-      commonTopics: data.commonTopics || [],
-      peakCallTimes: data.peakCallTimes || [],
-    };
-  } catch (error) {
-    console.error('Error fetching analytics:', error);
-    throw error;
-  }
-};
-
-const vapiAxios = axios.create({
-  baseURL: 'https://api.vapi.ai',
-  headers: {
-    'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json'
-  }
-});
-
-const client = new VapiClient({ token: VAPI_API_KEY });
-
-const mockAnalyticsData = {
-  total_calls: 150,
-  total_duration: 12000, // in seconds
-  average_duration: 80, // in seconds
-  total_cost: 300, // in currency
-  calls_by_status: {
-    completed: 120,
-    failed: 20,
-    unknown: 10,
-  },
-  calls_by_date: {
-    '2024-12-05': 20,
-    '2024-12-06': 30,
-    '2024-12-07': 25,
-    '2024-12-08': 15,
-    '2024-12-09': 10,
-    '2024-12-10': 20,
-    '2024-12-11': 30,
-  },
-  average_latency: 200, // in milliseconds
-  calls: Array(150).fill({
-    duration: 80,
-    cost: 2,
-    status: 'completed',
-    created_at: '2024-12-05T10:00:00Z',
-    latency: 200,
-  }),
-};
-
-export const vapiService = {
+const vapiService = {
   // Get list of calls with pagination and filters
   getCalls: async (params: {
     limit?: number;
@@ -315,87 +239,40 @@ export const vapiService = {
     end_date?: string;
     status?: string;
   }) => {
-    try {
-      const response = await vapiAxios.get('/v1/calls', {
-        params: {
-          ...params,
-          limit: params.limit || 100,
-          offset: params.offset || 0
-        }
-      });
-      return {
-        calls: response.data.data || [],
-        total: response.data.total || 0
-      };
-    } catch (error: any) {
-      console.error('Error fetching calls:', error);
-      throw new Error(error.response?.data?.message || 'Failed to fetch calls');
-    }
+    const response = await axios.get(`${VAPI_BASE_URL}/calls`, {
+      params,
+      headers: getHeaders()
+    });
+    return response.data;
   },
 
   // Get specific call details
   getCall: async (callId: string) => {
-    const response = await vapiAxios.get(`/calls/${callId}`);
+    const response = await axios.get(`${VAPI_BASE_URL}/call/${callId}`, {
+      headers: getHeaders()
+    });
     return response.data;
   },
 
   // Get assistant details
   getAssistant: async (assistantId: string) => {
-    try {
-      const response = await client.assistants.get(assistantId);
-      return response;
-    } catch (error) {
-      console.error('Error fetching assistant details:', error);
-      throw error;
-    }
+    const response = await axios.get(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
+      headers: getHeaders()
+    });
+    console.log(response.data)
+    return response.data;
   },
 
   // Update assistant configuration
-  async updateAssistant(assistantId: string, data: any) {
-    try {
-      // Validate model based on provider
-      const openAiModels = [
-        'o1-preview', 'o1-preview-2024-09-12', 'o1-mini', 'o1-mini-2024-09-12',
-        'gpt-4o-realtime-preview-2024-10-01', 'gpt-4o-realtime-preview-2024-12-17',
-        'gpt-4o-mini-realtime-preview-2024-12-17', 'gpt-4o-mini', 'gpt-4o-mini-2024-07-18',
-        'gpt-4o', 'gpt-4o-2024-05-13', 'gpt-4o-2024-08-06', 'gpt-4o-2024-11-20',
-        'gpt-4-turbo', 'gpt-4-turbo-2024-04-09', 'gpt-4-turbo-preview',
-        'gpt-4-0125-preview', 'gpt-4-1106-preview', 'gpt-4', 'gpt-4-0613',
-        'gpt-3.5-turbo', 'gpt-3.5-turbo-0125', 'gpt-3.5-turbo-1106',
-        'gpt-3.5-turbo-16k', 'gpt-3.5-turbo-0613'
-      ];
-
-      const anthropicModels = [
-        'claude-3-opus-20240229',
-        'claude-3-sonnet-20240229',
-        'claude-3-haiku-20240307',
-        'claude-3-5-sonnet-20240620',
-        'claude-3-5-sonnet-20241022',
-        'claude-3-5-haiku-20241022'
-      ];
-
-      if (data.model?.provider === 'openai' && !openAiModels.includes(data.model?.model)) {
-        throw new Error(`Invalid OpenAI model selected. Please choose from: ${openAiModels.join(', ')}`);
+  updateAssistant: async (assistantId: string, data: any) => {
+    const response = await axios.patch(
+      `${VAPI_BASE_URL}/assistant/${assistantId}`,
+      data,
+      {
+        headers: getHeaders()
       }
-
-      if (data.model?.provider === 'anthropic' && !anthropicModels.includes(data.model?.model)) {
-        throw new Error(`Invalid Anthropic model selected. Please choose from: ${anthropicModels.join(', ')}`);
-      }
-
-      const response = await vapiAxios.patch(`/assistant/${assistantId}`, data);
-      return response.data;
-    } catch (error: any) {
-      console.error('Error in updateAssistant:', error);
-      
-      if (error.response?.data?.message) {
-        const message = Array.isArray(error.response.data.message) 
-          ? error.response.data.message.join(', ') 
-          : error.response.data.message;
-        throw new Error(message);
-      }
-      
-      throw error;
-    }
+    );
+    return response.data;
   },
 
   // Get analytics data
@@ -404,26 +281,30 @@ export const vapiService = {
     end_date?: string;
     assistant_id?: string;
   }) => {
-    try {
-      // Return mock data instead of making an API call
-      return mockAnalyticsData;
-    } catch (error: any) {
-      console.error('Error fetching analytics:', error);
-      throw new Error(error.response?.data?.message || 'Failed to fetch analytics');
-    }
+    const response = await axios.get(`${VAPI_BASE_URL}/analytics`, {
+      params,
+      headers: getHeaders()
+    });
+    return response.data;
   },
 
   // Send message to assistant
   sendMessage: async (assistantId: string, message: string) => {
-    const response = await vapiAxios.post(`/assistants/${assistantId}/messages`, {
-      message,
-    });
+    const response = await axios.post(
+      `${VAPI_BASE_URL}/assistant/${assistantId}/message`,
+      { message },
+      {
+        headers: getHeaders()
+      }
+    );
     return response.data;
   },
 
   // Get real-time metrics
   getRealTimeMetrics: async (assistantId: string) => {
-    const response = await vapiAxios.get(`/assistant/${assistantId}`);
+    const response = await axios.get(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
+      headers: getHeaders()
+    });
     return response.data;
   },
 };
@@ -449,13 +330,37 @@ export const getCallData = async (timeRange: string = '7d') => {
         break;
     }
 
-    const response = await vapiAxios.get('/call', {
-      params: {
-        createdAtGe: startDate.toISOString(),
-        createdAtLe: now.toISOString(),
-      }
+    const params = {
+      createdAtGe: startDate.toISOString(),
+      createdAtLe: now.toISOString(),
+    };
+
+    console.log('Fetching calls with params:', params);
+    const response = await axios.get(`${VAPI_BASE_URL}/call`, {
+      params,
+      headers: getHeaders()
     });
-    return response.data;
+    
+    // Log the response data to debug
+    console.log('API Response:', response.data);
+    
+    // Ensure we return an array of calls with proper cost data
+    const calls = Array.isArray(response.data) ? response.data : [];
+    return calls.map(call => ({
+      ...call,
+      cost: call.cost || 0,
+      costBreakdown: {
+        stt: call.costBreakdown?.stt || 0,
+        llm: call.costBreakdown?.llm || 0,
+        tts: call.costBreakdown?.tts || 0,
+        vapi: call.costBreakdown?.vapi || 0,
+        total: call.costBreakdown?.total || call.cost || 0,
+        promptTokens: call.costBreakdown?.llmPromptTokens || 0,
+        completionTokens: call.costBreakdown?.llmCompletionTokens || 0,
+        ttsCharacters: call.costBreakdown?.ttsCharacters || 0,
+        transport: call.costBreakdown?.transport || 0
+      }
+    }));
   } catch (error) {
     console.error('Error fetching call data:', error);
     throw error;

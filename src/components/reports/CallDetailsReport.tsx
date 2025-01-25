@@ -134,11 +134,16 @@ const CallDetailsReport = ({ data }: Props) => {
     ]);
 
     doc.autoTable({
-      startY: doc.previousAutoTable.finalY + 10,
+      startY: 70,
       head: [['ID', 'Start Time', 'Status', 'Cost', 'Messages']],
       body: tableData,
       theme: 'striped',
       headStyles: { fillColor: [59, 130, 246] },
+      didDrawPage: function() {
+        // Add header
+        doc.setFontSize(20);
+        doc.text('Call Details Report', 14, 30);
+      },
     });
 
     doc.save(`call_report_${format(new Date(), 'yyyy-MM-dd')}.pdf`);

@@ -8,22 +8,11 @@ interface CallAnalyticsReportProps {
   loading?: boolean;
 }
 
-const containerAnimation = {
-  hidden: { opacity: 0, y: 20 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.5,
-      staggerChildren: 0.1,
-    },
-  },
-};
 
-const itemAnimation = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
+interface CallDistribution {
+  name: string;
+  value: number;
+}
 
 export default function CallAnalyticsReport({ data }: CallAnalyticsReportProps) {
   if (!data) return null;
@@ -46,9 +35,9 @@ export default function CallAnalyticsReport({ data }: CallAnalyticsReportProps) 
     },
     {
       title: 'Success Rate',
-      value: (data.callDistribution.find(d => d.name === 'success')?.value || 0),
+      value: Number(data.callDistribution.find(d => d.name === 'success')?.value ?? 0),
       icon: Activity,
-      trend: Number(data.callDistribution.find(d => d.name === 'success')?.trend || 0),
+      trend: Number(data.callDistribution.find(d => d.name === 'success')?.trend ?? 0),
       suffix: '%',
       color: 'violet',
     },
@@ -62,16 +51,44 @@ export default function CallAnalyticsReport({ data }: CallAnalyticsReportProps) 
     },
   ];
 
+  const distributionData: CallDistribution[] = data.callDistribution.map(item => ({
+    name: item.name,
+    value: Number(item.value || 0)
+  }));
+
+  const formatValue = (value: number | string): string => {
+    if (typeof value === 'string') {
+      value = Number(value);
+    }
+    return value.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    });
+  };
+
   return (
     <motion.div
       className="space-y-6"
-      variants={containerAnimation}
+      variants={{
+        hidden: { opacity: 0, y: 20 },
+        show: {
+          opacity: 1,
+          y: 0,
+          transition: {
+            duration: 0.5,
+            staggerChildren: 0.1,
+          },
+        },
+      }}
       initial="hidden"
       animate="show"
     >
       <Grid numItems={1} numItemsSm={2} numItemsLg={4} className="gap-6">
         {callMetrics.map((metric) => (
-          <motion.div key={metric.title} variants={itemAnimation}>
+          <motion.div key={metric.title} variants={{
+            hidden: { opacity: 0, y: 20 },
+            show: { opacity: 1, y: 0 },
+          }}>
             <Card
               className={`p-4 bg-gradient-to-br from-${metric.color}-50 to-${metric.color}-100/20 border-none transform transition-all duration-200 hover:scale-105`}
               decoration="top"
@@ -86,9 +103,7 @@ export default function CallAnalyticsReport({ data }: CallAnalyticsReportProps) 
               <div className="mt-2">
                 <Title className={`text-2xl font-bold text-${metric.color}-900`}>
                   {metric.prefix}
-                  {typeof metric.value === 'number'
-                    ? metric.value.toFixed(2)
-                    : metric.value}
+                  {formatValue(metric.value)}
                   {metric.suffix}
                 </Title>
                 <Text
@@ -105,11 +120,14 @@ export default function CallAnalyticsReport({ data }: CallAnalyticsReportProps) 
       </Grid>
 
       <Grid numItems={1} numItemsSm={2} className="gap-6">
-        <motion.div variants={itemAnimation}>
+        <motion.div variants={{
+          hidden: { opacity: 0, y: 20 },
+          show: { opacity: 1, y: 0 },
+        }}>
           <Card className="p-4">
             <Title className="mb-4">Call Distribution</Title>
             <DonutChart
-              data={data.callDistribution}
+              data={distributionData}
               category="value"
               index="name"
               valueFormatter={(number) => `${number.toFixed(1)}%`}
@@ -120,7 +138,10 @@ export default function CallAnalyticsReport({ data }: CallAnalyticsReportProps) 
           </Card>
         </motion.div>
 
-        <motion.div variants={itemAnimation}>
+        <motion.div variants={{
+          hidden: { opacity: 0, y: 20 },
+          show: { opacity: 1, y: 0 },
+        }}>
           <Card className="p-4">
             <Title className="mb-4">Monthly Call Volume</Title>
             <AreaChart
@@ -142,7 +163,10 @@ export default function CallAnalyticsReport({ data }: CallAnalyticsReportProps) 
         </motion.div>
       </Grid>
 
-      <motion.div variants={itemAnimation}>
+      <motion.div variants={{
+        hidden: { opacity: 0, y: 20 },
+        show: { opacity: 1, y: 0 },
+      }}>
         <Card className="overflow-hidden">
           <div className="p-4 border-b border-gray-200">
             <Title>Recent Calls</Title>
@@ -190,7 +214,7 @@ export default function CallAnalyticsReport({ data }: CallAnalyticsReportProps) 
                     </span>
                   </TableCell>
                   <TableCell>{Math.round(call.duration / 60)} mins</TableCell>
-                  <TableCell>${call.cost.toFixed(2)}</TableCell>
+                  <TableCell>${formatValue(call.cost)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

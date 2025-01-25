@@ -2,20 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Home,
-  Activity,
-  BarChart2,
-  FileText,
-  CreditCard,
-  Users2,
-  Settings2,
-  HelpCircle,
   Menu,
   ChevronLeft,
-  LogOut,
   User,
   ChevronUp,
-  Bot,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuthStore } from '../stores/auth';
@@ -157,13 +147,13 @@ const navigationItems = [
     iconColor: 'from-green-500 to-emerald-600',
     bgColor: 'from-green-100/50 to-emerald-100/50'
   },
-  {
-    name: 'Team',
-    path: '/team',
-    icon: TeamIcon,
-    iconColor: 'from-pink-500 to-rose-600',
-    bgColor: 'from-pink-100/50 to-rose-100/50'
-  },
+  // {
+  //   name: 'Team',
+  //   path: '/team',
+  //   icon: TeamIcon,
+  //   iconColor: 'from-pink-500 to-rose-600',
+  //   bgColor: 'from-pink-100/50 to-rose-100/50'
+  // },
   {
     name: 'Settings',
     path: '/settings',
@@ -243,6 +233,11 @@ const mobileMenuVariants = {
   }
 };
 
+// Wrapper component for Lucide icons
+const IconWrapper = ({ icon: Icon, className }: { icon: any; className?: string }) => {
+  return <Icon className={className} />;
+};
+
 export default function Sidebar({ className }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -251,7 +246,7 @@ export default function Sidebar({ className }: SidebarProps) {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     setIsMobileOpen(false);
@@ -363,7 +358,7 @@ export default function Sidebar({ className }: SidebarProps) {
             pointer-events: none;
             transition: all 0.2s ease;
             white-space: nowrap;
-            z-index: 50;
+            z-index: 10;
           }
 
           .sidebar-collapsed .nav-item:hover .nav-tooltip {
@@ -376,7 +371,7 @@ export default function Sidebar({ className }: SidebarProps) {
       <motion.button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         className={cn(
-          'fixed top-4 left-4 z-50 p-2 rounded-lg',
+          'fixed top-4 left-4 z-40 p-2 rounded-lg',
           'bg-white/90 backdrop-blur-lg shadow-lg md:hidden',
           'hover:bg-gray-100/90 transition-colors',
           isMobileOpen && 'bg-gray-100/90'
@@ -392,7 +387,7 @@ export default function Sidebar({ className }: SidebarProps) {
         animate={isCollapsed ? "closed" : "open"}
         variants={window.innerWidth >= 768 ? sidebarVariants : mobileMenuVariants}
         className={cn(
-          'sidebar fixed top-0 left-0 z-40 h-screen',
+          'sidebar fixed top-0 left-0 z-30 h-screen',
           'bg-white/95 backdrop-blur-xl',
           'border-r border-gray-200/50',
           'transition-[box-shadow] duration-150',
@@ -496,12 +491,15 @@ export default function Sidebar({ className }: SidebarProps) {
                         isActive ? item.bgColor : 'from-gray-50 to-gray-100/80',
                         "transition-all duration-300 hover:scale-105"
                       )}>
-                        <Icon className={cn(
-                          'w-5 h-5 transition-colors',
-                          isActive 
-                            ? `bg-gradient-to-r ${item.iconColor} bg-clip-text text-transparent` 
-                            : 'text-gray-500 group-hover:text-blue-500'
-                        )} />
+                        <IconWrapper 
+                          icon={Icon}
+                          className={cn(
+                            'w-5 h-5 transition-colors',
+                            isActive 
+                              ? `bg-gradient-to-r ${item.iconColor} bg-clip-text text-transparent` 
+                              : 'text-gray-500 group-hover:text-blue-500'
+                          )}
+                        />
                       </div>
                       
                       <AnimatePresence mode="wait">

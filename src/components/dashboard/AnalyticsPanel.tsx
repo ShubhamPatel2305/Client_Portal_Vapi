@@ -1,6 +1,6 @@
 import { Card, Title, DonutChart, AreaChart } from '@tremor/react';
 import { motion } from 'framer-motion';
-import { Analytics, MonthlyStats } from '../../types/dashboard';
+import { Analytics} from '../../types/dashboard';
 import { formatMonthYear } from '../../utils/dateUtils';
 
 interface AnalyticsPanelProps {

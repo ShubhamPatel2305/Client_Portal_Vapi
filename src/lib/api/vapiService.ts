@@ -1,15 +1,19 @@
 import axios from 'axios';
-import { VapiClient } from "@vapi-ai/server-sdk";
+import { getApiKey } from '../../services/credentialsService';
 
 const VAPI_BASE_URL = 'https://api.vapi.ai';
 const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
 
+// import { getApiKey } from './credentialsService';
+
+const getHeaders = () => ({
+  'Authorization': `Bearer ${getApiKey()}`,
+  'Content-Type': 'application/json'
+});
+
 const vapiClient = axios.create({
   baseURL: VAPI_BASE_URL,
-  headers: {
-    'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json'
-  }
+  headers: getHeaders()
 });
 
 export interface Call {
@@ -50,6 +54,7 @@ export interface MonthlyCallData {
 }
 
 export interface Analytics {
+  calls: never[];
   results: AnalyticsResult[];
   totalCallMinutes: number;
   totalCallMinutesTrend: number;
@@ -79,6 +84,7 @@ export interface MonthlyTrend {
 }
 
 export interface CallDistribution {
+  value: number;
   name: string;
   count: number;
   color: string;
@@ -86,6 +92,7 @@ export interface CallDistribution {
 }
 
 export interface RecentCall {
+  timestamp: string | number | Date;
   id: string;
   phoneNumber: string;
   type: string;
@@ -96,6 +103,7 @@ export interface RecentCall {
 }
 
 export interface CallData {
+  metadata: any;
   id: string;
   type: string;
   startedAt: string;
@@ -264,6 +272,7 @@ export const vapiService = {
       })) || [];
 
       return {
+        calls: [],
         results: [],
         totalCallMinutes,
         totalCallMinutesTrend,
@@ -273,7 +282,7 @@ export const vapiService = {
         totalSpentTrend,
         avgCostPerCall: currentAvgCost,
         avgCostPerCallTrend,
-        monthlyTrend: monthlyCallData.map(item => ({
+        monthlyTrend: monthlyCallData.map((item: MonthlyCallData) => ({
           date: item.date,
           calls: item.totalCalls,
           cost: item.totalCost
@@ -322,18 +331,21 @@ export const vapiService = {
         : 0;
 
       return {
+        calls: [],
         results: [],
-        monthlyCallData,
+        totalCallMinutes: data.totalCallMinutes || 0,
+        totalCallMinutesTrend: data.totalCallMinutesTrend || 0,
+        numberOfCalls: data.numberOfCalls || 0,
+        numberOfCallsTrend: data.numberOfCallsTrend || 0,
+        totalSpent,
+        totalSpentTrend: 0,  
+        avgCostPerCall,
+        avgCostPerCallTrend: 0,  
+        monthlyTrend: data.monthlyTrend || [],
         callDistribution: data.callDistribution || [],
         costAnalysis: data.costAnalysis || [],
-        monthlyTrend: data.monthlyTrend || [],
-        recentCalls: data.recentCalls || [],
-        totalSpent,
-        avgCostPerCall,
-        totalCallMinutes: 0,
-        totalCallMinutesTrend: 0,
-        numberOfCalls: data.numberOfCalls,
-        numberOfCallsTrend: 0,
+        monthlyCallData,
+        recentCalls: data.recentCalls || []
       };
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -342,13 +354,14 @@ export const vapiService = {
   },
   async getCalls(startDate?: Date, endDate?: Date): Promise<CallData[]> {
     try {
-      const client = new VapiClient({ token: import.meta.env.VITE_VAPI_API_KEY || "" });
-      const response = await client.calls.list({
-        createdAtGe: startDate?.toISOString(),
-        createdAtLe: endDate?.toISOString(),
-      });
+      console.log(startDate?.toISOString(), endDate?.toISOString());
+      var vapiClients= vapiClient;
+      vapiClients.defaults.headers.common['createdAtGe'] = startDate?.toISOString();
+      vapiClients.defaults.headers.common['createdAtLe'] = endDate?.toISOString();
 
-      return (response || []).map((call: any) => ({
+      const response = await vapiClients.get('/call');
+
+      return (response.data || []).map((call: any) => ({
         id: call.id || '',
         type: call.type || '',
         startedAt: call.startedAt || call.createdAt || new Date().toISOString(),

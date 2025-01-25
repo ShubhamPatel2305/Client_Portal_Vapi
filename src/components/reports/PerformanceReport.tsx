@@ -1,12 +1,13 @@
-import { Card, Title, Text, Grid, AreaChart, DonutChart, BarChart, LineChart, Metric, Badge, Color, ProgressBar, Flex, Subtitle } from '@tremor/react';
+import { Card, Title, Text, Grid, AreaChart, DonutChart, BarChart, Metric, Badge, Color, ProgressBar, Flex, Subtitle } from '@tremor/react';
 import { format, subDays, isSameDay } from 'date-fns';
-import { TrendingUp, TrendingDown, Clock, PhoneCall, DollarSign, Target, Activity, MessageCircle, Timer } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, PhoneCall, DollarSign, Target, MessageCircle, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { CallData } from '../../types/CallData';
 import { useMemo } from 'react';
 
 interface Props {
   data: CallData[];
+  dateRange: { from: Date; to: Date };
 }
 
 interface Metrics {
@@ -230,13 +231,7 @@ const PerformanceReport: React.FC<Props> = ({ data }) => {
       trend: 0,
       color: 'amber' as Color,
     },
-    {
-      title: 'Avg Response Time',
-      metric: metrics.avgResponseTime.toFixed(2),
-      icon: Clock,
-      trend: 0,
-      color: 'blue' as Color,
-    },
+  
     {
       title: 'Success Rate',
       metric: metrics.successRate.toFixed(1),

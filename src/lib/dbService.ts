@@ -1,5 +1,33 @@
-import { mongodb } from './mongodb';
-import { ObjectId } from 'mongodb';
+import { MongoClient, ObjectId, Db } from 'mongodb';
+
+class MongoDB {
+  private client: MongoClient | null = null;
+  private db: Db | null = null;
+
+  async connect(): Promise<void> {
+    if (!this.client) {
+      this.client = await MongoClient.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017');
+      this.db = this.client.db(process.env.MONGODB_DB || 'vapi_portal');
+    }
+  }
+
+  getDb(): Db {
+    if (!this.db) {
+      throw new Error('Database not connected. Call connect() first.');
+    }
+    return this.db;
+  }
+
+  async close(): Promise<void> {
+    if (this.client) {
+      await this.client.close();
+      this.client = null;
+      this.db = null;
+    }
+  }
+}
+
+export const mongodb = new MongoDB();
 
 export interface Call {
   _id?: ObjectId;
@@ -28,7 +56,7 @@ export interface DashboardData {
   };
 }
 
-export async function fetchDashboardData(): Promise<DashboardData[]> {
+export async function fetchDashboardData(): Promise<DashboardData> {
   try {
     const db = mongodb.getDb();
     const calls = db.collection<Call>('calls');
@@ -47,43 +75,54 @@ export async function fetchDashboardData(): Promise<DashboardData[]> {
               year: { $year: '$timestamp' }
             },
             calls: { $sum: 1 },
-            totalDuration: { $sum: '$duration' }
+            avgDuration: { $avg: '$duration' }
           }
-        },
-        { $sort: { '_id.year': 1, '_id.month': 1 } }
+        }
       ]).toArray()
     ]);
 
-    const avgDuration = recentCalls.reduce((acc, call) => acc + call.duration, 0) / recentCalls.length;
-    const totalCost = recentCalls.reduce((acc, call) => acc + call.cost, 0);
-    const uniqueUsers = new Set(recentCalls.map(call => call.userId)).size;
+    const activeUsers = await db.collection('users').countDocuments({ lastActive: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } });
 
-    const successfulCalls = recentCalls.filter(call => call.status === 'success').length;
-    const failedCalls = recentCalls.filter(call => call.status === 'failed').length;
+    const callQualityMetrics = await calls.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalCalls: { $sum: 1 },
+          successCount: {
+            $sum: { $cond: [{ $eq: ['$status', 'success'] }, 1, 0] }
+          },
+          failureCount: {
+            $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] }
+          }
+        }
+      }
+    ]).toArray();
 
-    const processedData: DashboardData = {
+    const metrics = callQualityMetrics[0] || { totalCalls: 0, successCount: 0, failureCount: 0 };
+    const successRate = metrics.totalCalls > 0 ? (metrics.successCount / metrics.totalCalls) * 100 : 0;
+    const failureRate = metrics.totalCalls > 0 ? (metrics.failureCount / metrics.totalCalls) * 100 : 0;
+
+    return {
       totalCalls,
-      avgCallDuration: avgDuration || 0,
-      totalCost,
-      activeUsers: uniqueUsers,
+      avgCallDuration: recentCalls.reduce((acc: number, call: Call) => acc + call.duration, 0) / (recentCalls.length || 1),
+      totalCost: recentCalls.reduce((acc: number, call: Call) => acc + call.cost, 0),
+      activeUsers,
       recentActivities: recentCalls,
       callTypes: callTypes.map(type => ({
-        type: type._id,
-        value: type.count
+        type: type._id as string,
+        value: type.count as number
       })),
       monthlyCallData: monthlyData.map(data => ({
-        month: new Date(0, data._id.month - 1).toLocaleString('default', { month: 'short' }),
+        month: `${data._id.year}-${String(data._id.month).padStart(2, '0')}`,
         calls: data.calls,
-        avgDuration: data.totalDuration / data.calls
+        avgDuration: data.avgDuration
       })),
       callQualityMetrics: {
-        successRate: (successfulCalls / recentCalls.length) * 100,
-        failureRate: (failedCalls / recentCalls.length) * 100,
-        totalCalls
+        successRate,
+        failureRate,
+        totalCalls: metrics.totalCalls
       }
     };
-
-    return [processedData];
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     throw error;
@@ -120,7 +159,7 @@ export async function updateCall(id: string, updates: Partial<Call>): Promise<Ca
       { returnDocument: 'after' }
     );
 
-    return result;
+    return result || null;
   } catch (error) {
     console.error('Error updating call:', error);
     throw error;

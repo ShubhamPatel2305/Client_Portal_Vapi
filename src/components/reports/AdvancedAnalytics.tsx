@@ -4,7 +4,6 @@ import {
   Title,
   Text,
   Grid,
-  Col,
   Metric,
   Flex,
   Badge,
@@ -19,18 +18,15 @@ import {
   Subtitle,
 } from '@tremor/react';
 import { motion } from 'framer-motion';
-import { format, subDays, addDays, isSameDay } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import {
   TrendingUp,
-  TrendingDown,
   Clock,
   MessageCircle,
-  User,
   CheckCircle,
   XCircle,
-  AlertCircle,
 } from 'lucide-react';
-import { CallData } from '../../pages/Reports';
+import type { CallData } from '../../types/CallData';
 
 interface Props {
   data: CallData[];
@@ -82,8 +78,9 @@ const AdvancedAnalytics: React.FC<Props> = ({ data }) => {
 
   // Calculate user engagement patterns
   const messagePatterns = data.reduce((acc: any[], call) => {
-    const userMessages = call.messages?.filter(m => m.role === 'user').length || 0;
-    const assistantMessages = call.messages?.filter(m => m.role === 'assistant').length || 0;
+    if (!call.messages) return acc;
+    const userMessages = call.messages.filter(m => m.role === 'user').length;
+    const assistantMessages = call.messages.filter(m => m.role === 'assistant').length;
     
     acc.push({
       name: format(new Date(call.startedAt), 'MMM dd HH:mm'),
@@ -97,7 +94,8 @@ const AdvancedAnalytics: React.FC<Props> = ({ data }) => {
   // Calculate user interaction insights
   const totalMessages = data.reduce((acc, call) => acc + (call.messages?.length || 0), 0);
   const avgUserMessagesPerCall = data.reduce((acc, call) => {
-    const userMessages = call.messages?.filter(m => m.role === 'user').length || 0;
+    if (!call.messages) return acc;
+    const userMessages = call.messages.filter(m => m.role === 'user').length;
     return acc + userMessages;
   }, 0) / totalCalls;
 

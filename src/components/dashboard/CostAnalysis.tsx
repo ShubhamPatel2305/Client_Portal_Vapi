@@ -1,6 +1,5 @@
 import React from 'react';
 import { AreaChart } from '@tremor/react';
-import { formatMonthYear } from '../../utils/dateUtils';
 
 interface CostAnalysisProps {
   monthlyData: Array<{

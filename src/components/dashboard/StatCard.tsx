@@ -12,7 +12,7 @@ interface StatCardProps {
   };
 }
 
-const StatCard = ({ title, metric, icon: Icon, trend }: StatCardProps) => {
+const StatCard = ({ title, metric, icon: Icon }: StatCardProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
