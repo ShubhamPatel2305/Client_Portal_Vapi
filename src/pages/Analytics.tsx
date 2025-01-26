@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import axios from 'axios';
+import { getApiKey } from '../services/credentialsService';
 
 interface TrendData {
   totalCallMinutesTrend: number;
@@ -694,7 +695,7 @@ const Analytics: React.FC = () => {
       const response = await fetch('https://api.vapi.ai/call', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_VAPI_API_KEY}`,
+          'Authorization': `Bearer ${getApiKey()||import.meta.env.VITE_VAPI_API_KEY}`,
           'Content-Type': 'application/json',
         },
       });
