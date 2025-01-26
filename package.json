@@ -10,7 +10,8 @@
     "build": "tsc && vite build",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "postinstall": "npm install --legacy-peer-deps"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
@@ -61,6 +62,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.0",
     "@types/date-fns": "^2.5.3",
     "@types/express": "^5.0.0",
     "@types/lodash": "^4.17.13",
