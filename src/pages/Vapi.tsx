@@ -131,9 +131,10 @@ export default function Vapi() {
       const assistantData = await vapiService.getAssistant(getAssistantId());
       console.log('Assistant Data:', assistantData);
 
-      var sysPrompt = assistantData.model?.systemPrompt;
+      var sysPrompt = assistantData.model.systemPrompt;
       if(!sysPrompt){
-        alert("datta");
+        sysPrompt=assistantData.model.messages[0].content;
+        console.log('System Prompt:', sysPrompt);
       }
 
       // Map the assistant data to your config structure
@@ -149,7 +150,7 @@ export default function Vapi() {
           model: assistantData.model?.model || prevConfig.model.model,
           provider: assistantData.model?.provider || prevConfig.model.provider,
           temperature: assistantData.model?.temperature ?? prevConfig.model.temperature,
-          systemPrompt: assistantData.model?.systemPrompt || prevConfig.model.systemPrompt,
+          systemPrompt: sysPrompt,
           emotionRecognitionEnabled: assistantData.model?.emotionRecognitionEnabled ?? prevConfig.model.emotionRecognitionEnabled
         },
         transcriber: {
