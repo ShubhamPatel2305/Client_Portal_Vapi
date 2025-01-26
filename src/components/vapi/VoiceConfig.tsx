@@ -1,25 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Card } from '@tremor/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, Mic, Settings2, Info, MessageSquare, ToggleLeft, ChevronDown, Wand2 } from 'lucide-react';
-import axios from 'axios';
-import { getApiKey, getAssistantId } from '../../services/credentialsService';
+import { Volume2, Mic, Settings2, Info, MessageSquare, ChevronDown } from 'lucide-react';
 
-interface VapiResponse {
-  id: string;
-  voice: {
-    model: string;
-    style: number;
-    voiceId: string;
-    provider: string;
-    stability: number;
-    similarityBoost: number;
-    inputMinCharacters: number;
-    fillerInjectionEnabled: boolean;
-    optimizeStreamingLatency: number;
+interface VoiceConfigProps {
+  config: {
+    id: string;
+    voice: {
+      model?: string;
+      style?: number;
+      voiceId: string;
+      provider: string;
+      stability?: number;
+      similarityBoost?: number;
+      inputMinCharacters?: number;
+      fillerInjectionEnabled?: boolean;
+      optimizeStreamingLatency?: number;
+    };
+    backgroundSound?: string;
+    backchannelingEnabled?: boolean;
   };
-  backgroundSound: string;
-  backchannelingEnabled: boolean;
+  onConfigChange: (key: string, value: any) => void;
 }
 
 const providers = [
@@ -48,155 +49,9 @@ const itemVariants = {
   visible: { opacity: 1, x: 0 }
 };
 
-const VoiceConfig: React.FC = () => {
-  const [vapiData, setVapiData] = useState<VapiResponse>({
-    id: '',
-    voice: {
-      model: '',
-      style: 0,
-      voiceId: '',
-      provider: '11labs',
-      stability: 0.5,
-      similarityBoost: 0.5,
-      inputMinCharacters: 0,
-      fillerInjectionEnabled: false,
-      optimizeStreamingLatency: 0,
-    },
-    backgroundSound: 'off',
-    backchannelingEnabled: false,
-  });
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchVapiData = async () => {
-      try {
-        const response = await axios.get(`https://api.vapi.ai/assistant/${getAssistantId()}`, {
-          headers: {
-            'Authorization': `Bearer ${getApiKey()}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        // Transform the response data to ensure all required fields exist
-        const transformedData = {
-          ...response.data,
-          voice: {
-            ...response.data.voice,
-            stability: response.data.voice?.stability ?? 0.5,
-            similarityBoost: response.data.voice?.similarityBoost ?? 0.5,
-          },
-          // Ensure backgroundSound is one of the allowed values
-          backgroundSound: ['office', 'off'].includes(response.data.backgroundSound) 
-            ? response.data.backgroundSound 
-            : 'off'
-        };
-        
-        setVapiData(transformedData);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load voice configuration. Please try again.');
-      }
-    };
-
-    fetchVapiData();
-  }, []);
-
-  const handleConfigChange = async (key: string, value: any) => {
-    try {
-      // Create the update payload
-      let payload = {};
-      
-      if (key === 'voice.voiceId') {
-        // For voiceId updates, include it in the voice object
-        payload = {
-          voice: {
-            ...vapiData.voice,
-            voiceId: value
-          }
-        };
-      } else if (key === 'voice.stability' || key === 'voice.similarityBoost') {
-        const voiceKey = key.split('.')[1];
-        const numValue = parseFloat(value);
-        
-        if (isNaN(numValue)) {
-          setError(`${voiceKey} must be a valid number`);
-          return;
-        }
-        
-        payload = {
-          voice: {
-            ...vapiData.voice,
-            [voiceKey]: numValue
-          }
-        };
-      } else {
-        payload = { [key]: value };
-      }
-
-      // Update UI immediately for better UX
-      setVapiData(prev => {
-        if (key.includes('voice.')) {
-          const voiceKey = key.split('.')[1];
-          const newValue = voiceKey === 'voiceId' ? value : parseFloat(value);
-          return {
-            ...prev,
-            voice: {
-              ...prev.voice,
-              [voiceKey]: newValue
-            }
-          };
-        }
-        return {
-          ...prev,
-          [key]: value
-        };
-      });
-
-      // Make API call with the payload
-      const response = await axios.patch(
-        `https://api.vapi.ai/assistant/${getAssistantId()}`,
-        payload,
-        {
-          headers: {
-            'Authorization': `Bearer ${getApiKey()}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      // Update state with response data
-      if (response.data) {
-        setVapiData(prev => ({
-          ...prev,
-          ...response.data
-        }));
-      }
-
-      setError(null);
-    } catch (err) {
-      console.error('Error updating configuration:', err);
-      
-      // On error, fetch the latest state from API
-      try {
-        const response = await axios.get(`https://api.vapi.ai/assistant/${getAssistantId()}`, {
-          headers: {
-            'Authorization': `Bearer ${getApiKey()}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        setVapiData(response.data);
-        setError(`Failed to update ${key.split('.').pop()}. Please try again.`);
-      } catch (fetchErr) {
-        console.error('Error fetching latest data:', fetchErr);
-        setError('Failed to update. Please refresh the page.');
-      }
-    }
-  };
-
-  const formatValue = (value: number, decimals: number = 1) => {
-    return typeof value === 'number' ? value.toFixed(decimals) : '0';
-  };
+const VoiceConfig: React.FC<VoiceConfigProps> = React.memo(({ config, onConfigChange }) => {
+  if (!config) return null;
+  console.log(config);
 
   return (
     <AnimatePresence>
@@ -237,8 +92,8 @@ const VoiceConfig: React.FC = () => {
               </div>
               <div className="relative">
                 <select
-                  value={vapiData.voice.provider}
-                  onChange={(e) => handleConfigChange('voice.provider', e.target.value)}
+                  value={config.voice.provider}
+                  onChange={(e) => onConfigChange('voice.provider', e.target.value)}
                   className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 cursor-pointer appearance-none text-gray-900 pr-10"
                 >
                   {providers.map((provider) => (
@@ -265,8 +120,8 @@ const VoiceConfig: React.FC = () => {
               <div className="relative">
                 <input
                   type="text"
-                  value={vapiData.voice?.voiceId ?? ''}
-                  onChange={(e) => handleConfigChange('voice.voiceId', e.target.value)}
+                  value={config.voice?.voiceId ?? ''}
+                  onChange={(e) => onConfigChange('voice.voiceId', e.target.value)}
                   placeholder="Enter voice ID..."
                   className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
                 />
@@ -293,7 +148,7 @@ const VoiceConfig: React.FC = () => {
               >
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-medium text-gray-700">Stability</label>
-                  <span className="text-sm text-gray-600">{vapiData.voice?.stability?.toFixed(2) ?? '0.50'}</span>
+                  <span className="text-sm text-gray-600">{config.voice?.stability?.toFixed(2) ?? '0.50'}</span>
                 </div>
                 <div className="relative">
                   <input
@@ -301,8 +156,8 @@ const VoiceConfig: React.FC = () => {
                     min="0"
                     max="1"
                     step="0.01"
-                    value={vapiData.voice?.stability ?? 0.5}
-                    onChange={(e) => handleConfigChange('voice.stability', e.target.value)}
+                    value={config.voice?.stability ?? 0.5}
+                    onChange={(e) => onConfigChange('voice.stability', parseFloat(e.target.value))}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 hover:accent-orange-600"
                   />
                   <div className="absolute -bottom-4 left-0 right-0 flex justify-between text-xs text-gray-500">
@@ -320,7 +175,7 @@ const VoiceConfig: React.FC = () => {
               >
                 <div className="flex justify-between items-center">
                   <label className="text-sm font-medium text-gray-700">Similarity Boost</label>
-                  <span className="text-sm text-gray-600">{vapiData.voice?.similarityBoost?.toFixed(2) ?? '0.75'}</span>
+                  <span className="text-sm text-gray-600">{config.voice?.similarityBoost?.toFixed(2) ?? '0.75'}</span>
                 </div>
                 <div className="relative">
                   <input
@@ -328,8 +183,8 @@ const VoiceConfig: React.FC = () => {
                     min="0"
                     max="1"
                     step="0.01"
-                    value={vapiData.voice?.similarityBoost ?? 0.75}
-                    onChange={(e) => handleConfigChange('voice.similarityBoost', e.target.value)}
+                    value={config.voice?.similarityBoost ?? 0.75}
+                    onChange={(e) => onConfigChange('voice.similarityBoost', parseFloat(e.target.value))}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 hover:accent-orange-600"
                   />
                   <div className="absolute -bottom-4 left-0 right-0 flex justify-between text-xs text-gray-500">
@@ -349,11 +204,11 @@ const VoiceConfig: React.FC = () => {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {backgroundSounds.map((sound) => {
-                  const isSelected = vapiData.backgroundSound === sound.id;
+                  const isSelected = config.backgroundSound === sound.id;
                   return (
                     <motion.button
                       key={sound.id}
-                      onClick={() => handleConfigChange('backgroundSound', sound.id)}
+                      onClick={() => onConfigChange('backgroundSound', sound.id)}
                       className={`p-3 rounded-xl flex flex-col items-center justify-center space-y-1 transition-all duration-200 ${
                         isSelected
                           ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-500 ring-opacity-50'
@@ -391,8 +246,8 @@ const VoiceConfig: React.FC = () => {
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={vapiData.backchannelingEnabled}
-                      onChange={(e) => handleConfigChange('backchannelingEnabled', e.target.checked)}
+                      checked={config.backchannelingEnabled}
+                      onChange={(e) => onConfigChange('backchannelingEnabled', e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
@@ -402,15 +257,9 @@ const VoiceConfig: React.FC = () => {
             </motion.div>
           </motion.div>
         </Card>
-        {error && (
-          <div className="p-4 bg-red-50 rounded-xl text-red-600 flex items-center gap-2">
-            <Info className="w-5 h-5" />
-            <span>{error}</span>
-          </div>
-        )}
       </motion.div>
     </AnimatePresence>
   );
-};
+});
 
 export default VoiceConfig;
