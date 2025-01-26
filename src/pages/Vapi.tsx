@@ -72,7 +72,9 @@ export default function Vapi() {
     name: '',
     voice: {
       voiceId: '',
-      provider: ''
+      provider: '',
+      stability: 0.7,
+      similarityBoost: 0.7
     },
     model: {
       model: '',
@@ -144,7 +146,9 @@ export default function Vapi() {
         name: assistantData.name || prevConfig.name,
         voice: {
           voiceId: assistantData.voice?.voiceId || prevConfig.voice.voiceId,
-          provider: assistantData.voice?.provider || prevConfig.voice.provider
+          provider: assistantData.voice?.provider || prevConfig.voice.provider,
+          stability: assistantData.voice?.stability || prevConfig.voice.stability,
+          similarityBoost: assistantData.voice?.similarityBoost || prevConfig.voice.similarityBoost
         },
         model: {
           model: assistantData.model?.model || prevConfig.model.model,
@@ -556,12 +560,12 @@ export default function Vapi() {
             <TranscriberConfig config={config} onConfigChange={handleConfigChange} />
           </Tab.Panel>
           <Tab.Panel>
-            <VoiceConfig />
+            <VoiceConfig config={config} onConfigChange={handleConfigChange} />
           </Tab.Panel>
           <Tab.Panel>
             <FunctionConfig config={config} onConfigChange={handleConfigChange} />
           </Tab.Panel>
-          <Tab.Panel>
+          <Tab.Panel> 
             <AdvancedSettings config={config} onConfigChange={handleConfigChange} />
           </Tab.Panel>
         </Tab.Panels>
