@@ -1,256 +1,233 @@
-import React from 'react';
-import { Card, Title } from '@tremor/react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Download, FileText, Calendar } from 'lucide-react';
-import { AreaChart, BarChart } from '@tremor/react';
-import { generateAnalyticsReport, generateInvoice } from '../../utils/pdfGenerators';
+import React, { useState } from 'react';
+import {
+  Card,
+  Title,
+  Table,
+  TableRow,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableBody,
+  Badge,
+  Select,
+  SelectItem,
+  Button,
+  Dialog,
+  DialogPanel,
+} from '@tremor/react';
 import { format } from 'date-fns';
+import type { CallData } from '../../lib/api/vapiService';
+import type { Color } from '@tremor/react';
+import { Download } from 'lucide-react';
 
 interface CallAnalyticsProps {
-  data: any;
+  data: {
+    calls: {
+      details: CallData[];
+    };
+  };
   selectedMonth: number;
   onMonthChange: (month: number) => void;
 }
 
-const chartVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: { duration: 0.5 }
-  },
-  exit: { 
-    opacity: 0,
-    y: -20,
-    transition: { duration: 0.3 }
+const getStatusColor = (status: string): Color => {
+  switch (status.toLowerCase()) {
+    case 'completed':
+    case 'ended':
+      return 'emerald';
+    case 'in-progress':
+    case 'queued':
+      return 'blue';
+    case 'failed':
+      return 'red';
+    default:
+      return 'gray';
   }
 };
 
-export const CallAnalytics: React.FC<CallAnalyticsProps> = ({ data, selectedMonth, onMonthChange }) => {
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                     'July', 'August', 'September', 'October', 'November', 'December'];
+const formatDuration = (seconds: number): string => {
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = (seconds % 60).toFixed(1);
+  return `${minutes}m ${remainingSeconds}s`;
+};
 
-  // Format the daily stats data for the chart
-  const formattedDailyStats = data.calls.dailyStats.map((stat: any) => ({
-    date: format(new Date(stat.date), 'MMM dd'),
-    totalCalls: stat.totalCalls,
-    avgDuration: stat.avgDuration
-  }));
+const formatCallType = (type: string): string => {
+  switch (type) {
+    case 'inboundPhoneCall':
+      return 'Inbound Call';
+    case 'outboundPhoneCall':
+      return 'Outbound Call';
+    default:
+      return type.replace(/([A-Z])/g, ' $1').trim();
+  }
+};
 
-  const handleDownloadReport = () => {
-    const reportData = {
-      totalCalls: data.calls.total,
-      inboundCalls: data.calls.inbound,
-      outboundCalls: data.calls.outbound,
-      avgDuration: Math.floor(data.calls.avgDuration / 60),
-      totalCost: parseFloat(data.calls.cost),
-      successRate: 95,
-      dailyStats: data.calls.dailyStats.map((stat: any) => ({
-        date: format(new Date(stat.date), 'MMM dd'),
-        totalCalls: stat.totalCalls
-      })),
-      callDetails: data.calls.details
-    };
+export function CallAnalytics({ data, selectedMonth, onMonthChange }: CallAnalyticsProps) {
+  const [selectedCall, setSelectedCall] = useState<CallData | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    const doc = generateAnalyticsReport(reportData);
-    doc.save(`analytics-report-${monthNames[selectedMonth]}-2024.pdf`);
+  const filteredCalls = data.calls.details.filter(call => {
+    const callDate = new Date(call.startedAt || call.createdAt);
+    return !isNaN(callDate.getTime()) && callDate.getMonth() === selectedMonth;
+  });
+
+  const handleViewDetails = (call: CallData) => {
+    setSelectedCall(call);
+    setIsDetailsOpen(true);
   };
 
-  const handleDownloadInvoice = () => {
-    const invoiceData = {
-      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
-      client: {
-        name: 'Your Company Name',
-        address: '123 Business Street',
-        city: 'San Francisco, CA 94105',
-        email: 'billing@yourcompany.com'
-      },
-      date: new Date().toISOString(),
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      billingPeriod: `${monthNames[selectedMonth]} 2024`,
-      services: [
-        {
-          name: 'Inbound Calls',
-          quantity: data.calls.inbound,
-          rate: 0.05,
-          amount: data.calls.inbound * 0.05
-        },
-        {
-          name: 'Outbound Calls',
-          quantity: data.calls.outbound,
-          rate: 0.07,
-          amount: data.calls.outbound * 0.07
-        }
-      ],
-      subtotal: parseFloat(data.calls.cost),
-      tax: parseFloat(data.calls.cost) * 0.1,
-      total: parseFloat(data.calls.cost) * 1.1
-    };
-
-    const doc = generateInvoice(invoiceData);
-    doc.save(`invoice-${monthNames[selectedMonth]}-2024.pdf`);
+  const handleCloseDetails = () => {
+    setIsDetailsOpen(false);
+    setSelectedCall(null);
   };
 
-  const formatDuration = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return !isNaN(date.getTime()) 
+        ? format(date, 'MMM dd, yyyy HH:mm:ss')
+        : 'Invalid Date';
+    } catch {
+      return 'Invalid Date';
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <motion.div
-            key={selectedMonth}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3 }}
+    <Card>
+      <div className="flex justify-between items-center mb-6">
+        <Title>Call Details</Title>
+        <div className="flex items-center space-x-4">
+          <Select 
+            value={selectedMonth.toString()} 
+            onValueChange={(value) => onMonthChange(parseInt(value))}
           >
-            <Title>Call Analytics - {monthNames[selectedMonth]} 2024</Title>
-          </motion.div>
-          <div className="flex items-center space-x-4">
-            <div className="relative inline-flex items-center">
-              <Calendar className="absolute left-3 w-5 h-5 text-gray-500 pointer-events-none" />
-              <select
-                value={selectedMonth}
-                onChange={(e) => onMonthChange(Number(e.target.value))}
-                className="pl-10 pr-4 py-2 appearance-none bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 font-medium min-w-[180px]"
-              >
-                {monthNames.map((month, idx) => (
-                  <option key={idx} value={idx}>{month}</option>
-                ))}
-              </select>
-              <div className="absolute right-3 pointer-events-none">
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleDownloadReport}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download Report
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleDownloadInvoice}
-              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Generate Invoice
-            </motion.button>
-          </div>
+            {Array.from({ length: 12 }, (_, i) => (
+              <SelectItem key={i} value={i.toString()}>
+                {format(new Date(2025, i), 'MMMM')}
+              </SelectItem>
+            ))}
+          </Select>
+          <Button
+            icon={Download}
+            variant="secondary"
+            onClick={() => {
+              // Implement export functionality
+              console.log('Export clicked');
+            }}
+          >
+            Export
+          </Button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`trends-${selectedMonth}`}
-              variants={chartVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="bg-white rounded-lg p-4"
-            >
-              <h3 className="text-lg font-semibold mb-4">Daily Call Trends</h3>
-              <AreaChart
-                className="h-72"
-                data={formattedDailyStats}
-                index="date"
-                categories={['totalCalls', 'avgDuration']}
-                colors={['blue', 'green']}
-                valueFormatter={(value) => value.toString()}
-                showLegend={true}
-              />
-            </motion.div>
-          </AnimatePresence>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`types-${selectedMonth}`}
-              variants={chartVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="bg-white rounded-lg p-4"
-            >
-              <h3 className="text-lg font-semibold mb-4">Call Distribution</h3>
-              <BarChart
-                className="h-72"
-                data={[
-                  {
-                    name: 'Call Types',
-                    'Inbound Calls': data.calls.inbound,
-                    'Outbound Calls': data.calls.outbound,
-                    'Missed Calls': Math.floor(Math.random() * 50),
-                    'Failed Calls': Math.floor(Math.random() * 20)
-                  }
-                ]}
-                index="name"
-                categories={['Inbound Calls', 'Outbound Calls', 'Missed Calls', 'Failed Calls']}
-                colors={['emerald', 'blue', 'amber', 'rose']}
-                valueFormatter={(value) => value.toString()}
-                showLegend={true}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold mb-4">Call Details</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white">
-              <thead>
-                <tr className="bg-blue-100">
-                  <th className="px-4 py-2 text-left">Call ID</th>
-                  <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Type</th>
-                  <th className="px-4 py-2 text-left">Duration</th>
-                  <th className="px-4 py-2 text-left">Cost</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.calls.details.map((call: any, index: number) => (
-                  <motion.tr
-                    key={call.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="border-b border-gray-200 hover:bg-gray-50"
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableHeaderCell>Date</TableHeaderCell>
+            <TableHeaderCell>Duration</TableHeaderCell>
+            <TableHeaderCell>Status</TableHeaderCell>
+            <TableHeaderCell>Cost</TableHeaderCell>
+            <TableHeaderCell>Details</TableHeaderCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {filteredCalls.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center text-gray-500">
+                No calls found for {format(new Date(2025, selectedMonth), 'MMMM')}
+              </TableCell>
+            </TableRow>
+          ) : (
+            filteredCalls.map((call) => (
+              <TableRow key={call.id} className="hover:bg-gray-50">
+                <TableCell>
+                  {formatDate(call.startedAt || call.createdAt)}
+                </TableCell>
+                <TableCell>{formatDuration(call.duration)}</TableCell>
+                <TableCell>
+                  <Badge color={getStatusColor(call.status)}>
+                    {call.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>${call.cost.toFixed(3)}</TableCell>
+                <TableCell>
+                  <Button 
+                    size="xs" 
+                    variant="secondary"
+                    onClick={() => handleViewDetails(call)}
                   >
-                    <td className="px-4 py-2">{call.id}</td>
-                    <td className="px-4 py-2">{format(new Date(call.date), 'MM/dd/yyyy')}</td>
-                    <td className="px-4 py-2">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        call.type === 'Inbound' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {call.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">{formatDuration(call.duration)}</td>
-                    <td className="px-4 py-2">${call.cost}</td>
-                    <td className="px-4 py-2">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        call.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {call.status}
-                      </span>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Card>
-    </div>
+                    View
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+
+      <Dialog open={isDetailsOpen} onClose={handleCloseDetails}>
+        <DialogPanel>
+          {selectedCall && (
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                <Title>Call Details</Title>
+                <Button 
+                  variant="light" 
+                  onClick={handleCloseDetails}
+                  icon={() => (
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Call ID</div>
+                  <div className="mt-1">{selectedCall.id}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Type</div>
+                  <div className="mt-1">{formatCallType(selectedCall.type)}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Status</div>
+                  <div className="mt-1">
+                    <Badge color={getStatusColor(selectedCall.status)}>
+                      {selectedCall.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Duration</div>
+                  <div className="mt-1">{formatDuration(selectedCall.duration)}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Cost</div>
+                  <div className="mt-1">${selectedCall.cost.toFixed(3)}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Start Time</div>
+                  <div className="mt-1">{formatDate(selectedCall.startedAt || selectedCall.createdAt)}</div>
+                </div>
+              </div>
+
+              {selectedCall.metadata && (
+                <div className="mt-6">
+                  <div className="text-sm font-medium text-gray-500 mb-2">Additional Information</div>
+                  <pre className="bg-gray-50 rounded p-3 text-sm overflow-auto">
+                    {JSON.stringify(selectedCall.metadata, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogPanel>
+      </Dialog>
+    </Card>
   );
-};
+}

@@ -1,14 +1,20 @@
 import axios from 'axios';
+import { VapiClient } from "@vapi-ai/server-sdk";
+import { getApiKey } from '../../services/credentialsService';
 
 const VAPI_BASE_URL = 'https://api.vapi.ai';
 const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
 
+// import { getApiKey } from './credentialsService';
+
+const getHeaders = () => ({
+  'Authorization': `Bearer ${getApiKey()}`,
+  'Content-Type': 'application/json'
+});
+
 const vapiClient = axios.create({
   baseURL: VAPI_BASE_URL,
-  headers: {
-    'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
+  headers: getHeaders()
 });
 
 export interface Call {
@@ -49,6 +55,7 @@ export interface MonthlyCallData {
 }
 
 export interface Analytics {
+  results: AnalyticsResult[];
   totalCallMinutes: number;
   totalCallMinutesTrend: number;
   numberOfCalls: number;
@@ -57,39 +64,67 @@ export interface Analytics {
   totalSpentTrend: number;
   avgCostPerCall: number;
   avgCostPerCallTrend: number;
-  callDistribution: Array<{
-    name: string;
-    value: number;
-    color: string;
-    trend: string;
-    count: number;
-  }>;
-  costAnalysis: Array<{
-    category: string;
-    amount: number;
-  }>;
+  monthlyTrend: MonthlyTrend[];
+  callDistribution: CallDistribution[];
+  recentCalls: RecentCall[];
   monthlyCallData: MonthlyCallData[];
-  monthlyTrend: Array<{
-    date: string;
-    calls: number;
-    cost: number;
-  }>;
-  recentCalls: Array<{
-    id: string;
-    phoneNumber: string;
-    type: string;
-    status: string;
-    duration: number;
-    cost: number;
-    date: string;
-  }>;
+  costAnalysis: ChartDataItem[];
+}
+
+export interface AnalyticsResult {
+  date: string;
+  calls: number;
+  cost: number;
+}
+
+export interface MonthlyTrend {
+  date: string;
+  calls: number;
+  cost: number;
+}
+
+export interface CallDistribution {
+  name: string;
+  count: number;
+  color: string;
+  trend: string;
+}
+
+export interface RecentCall {
+  id: string;
+  phoneNumber: string;
+  type: string;
+  status: string;
+  duration: number;
+  cost: number;
+  date: string;
+}
+
+export interface CallData {
+  id: string;
+  type: string;
+  startedAt: string;
+  endedAt: string;
+  cost: number;
+  status: string;
+  endedReason?: string;
+  costBreakdown?: {
+    transport: number;
+    stt: number;
+    llm: number;
+    tts: number;
+    vapi: number;
+    total: number;
+  };
+  duration: number;
+  createdAt: string;
 }
 
 export const vapiService = {
   async getAnalytics(startDate?: Date, endDate?: Date): Promise<Analytics> {
     try {
       const now = new Date();
-      const defaultStartDate = startDate || new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)); // 30 days ago
+      const defaultStartDate = startDate || new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000)); // 30 days ago
       const defaultEndDate = endDate || now;
 
       const { data } = await vapiClient.post('/analytics', {
@@ -97,50 +132,66 @@ export const vapiService = {
           {
             table: "call",
             name: "current_total_duration",
-            operations: [{ operation: "sum", column: "duration" }]
+            operations: [{ operation: "sum", column: "duration" }],
+            timeRange:{
+              start: new Date(now.getTime()-(180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
+            }
           },
           {
             table: "call",
             name: "previous_total_duration",
             operations: [{ operation: "sum", column: "duration" }],
             timeRange: {
-              start: new Date(defaultStartDate.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString(),
-              end: defaultStartDate.toISOString()
+              start: new Date(defaultStartDate.getTime() - (180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
             }
           },
           {
             table: "call",
             name: "current_calls_count",
-            operations: [{ operation: "count", column: "id" }]
+            operations: [{ operation: "count", column: "id" }],
+            timeRange:{
+              start: new Date(now.getTime()-(180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
+            }
           },
           {
             table: "call",
             name: "previous_calls_count",
             operations: [{ operation: "count", column: "id" }],
             timeRange: {
-              start: new Date(defaultStartDate.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString(),
-              end: defaultStartDate.toISOString()
+              start: new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
             }
           },
           {
             table: "call",
             name: "current_total_cost",
-            operations: [{ operation: "sum", column: "cost" }]
+            operations: [{ operation: "sum", column: "cost" }],
+            timeRange:{
+              start: new Date(now.getTime()-(180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
+            }
           },
           {
             table: "call",
             name: "previous_total_cost",
             operations: [{ operation: "sum", column: "cost" }],
             timeRange: {
-              start: new Date(defaultStartDate.getTime() - (30 * 24 * 60 * 60 * 1000)).toISOString(),
-              end: defaultStartDate.toISOString()
+              start: new Date(now.getTime() - (180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
             }
           },
           {
             table: "call",
             name: "calls_by_status",
             operations: [{ operation: "count", column: "id" }],
-            groupBy: ["status"]
+            groupBy: ["status"],
+            timeRange:{
+              start: new Date(now.getTime()-(180 * 24 * 60 * 60 * 1000)).toISOString(),
+              end: now.toISOString()
+            }
           },
           {
             table: "call",
@@ -192,27 +243,33 @@ export const vapiService = {
       const avgCostPerCallTrend = calculateTrend(currentAvgCost, previousAvgCost);
 
       // Process other data
-      const monthlyCallData: Analytics['monthlyCallData'] = data.find((item: any) => item.name === 'monthly_calls')?.result.map((item: any) => ({
-        date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        totalCalls: parseInt(item.countId) || 0,
-        totalCost: parseFloat(data.find((dataItem: any) => dataItem.name === 'monthly_costs')?.result.find((costItem: any) => costItem.date === item.date)?.sumCost || '0'),
-        calls: []
-      })) || [];
+      const monthlyCallData = data.find((item: any) => item.name === 'monthly_calls')?.result.map((item: any) => {
+        const costItem = data.find((dataItem: any) => dataItem.name === 'monthly_costs')?.result
+          .find((costItem: any) => costItem.date === item.date);
+        
+        return {
+          date: item.date.substring(0, 7), // Format: YYYY-MM
+          totalCalls: parseInt(item.countId) || 0,
+          totalCost: parseFloat(costItem?.sumCost || '0'),
+          calls: []
+        };
+      }) || [];
 
-      const costAnalysis: Analytics['costAnalysis'] = data.find((item: any) => item.name === 'monthly_costs')?.result.map((item: any) => ({
-        category: new Date(item.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      const costAnalysis = data.find((item: any) => item.name === 'monthly_costs')?.result.map((item: any) => ({
+        category: item.date.substring(0, 7), // Format: YYYY-MM
         amount: parseFloat(item.sumCost) || 0
       })) || [];
 
-      const callDistribution: Analytics['callDistribution'] = data.find((item: any) => item.name === 'calls_by_status')?.result.map((item: any) => ({
+      const callDistribution = data.find((item: any) => item.name === 'calls_by_status')?.result.map((item: any) => ({
         name: item.status,
         value: (parseInt(item.countId) / currentCalls) * 100,
-        color: '',
+        color: item.status === 'success' ? '#10B981' : item.status === 'failed' ? '#EF4444' : '#6B7280',
         trend: '',
         count: parseInt(item.countId) || 0
       })) || [];
 
       return {
+        results: [],
         totalCallMinutes,
         totalCallMinutesTrend,
         numberOfCalls: currentCalls,
@@ -221,10 +278,14 @@ export const vapiService = {
         totalSpentTrend,
         avgCostPerCall: currentAvgCost,
         avgCostPerCallTrend,
-        callDistribution,
-        costAnalysis,
+        monthlyTrend: monthlyCallData.map(item => ({
+          date: item.date,
+          calls: item.totalCalls,
+          cost: item.totalCost
+        })),
         monthlyCallData,
-        monthlyTrend: [],
+        costAnalysis,
+        callDistribution,
         recentCalls: []
       };
     } catch (error) {
@@ -266,18 +327,57 @@ export const vapiService = {
         : 0;
 
       return {
-        ...data,
+        results: [],
         monthlyCallData,
         callDistribution: data.callDistribution || [],
         costAnalysis: data.costAnalysis || [],
         monthlyTrend: data.monthlyTrend || [],
         recentCalls: data.recentCalls || [],
         totalSpent,
-        avgCostPerCall
+        avgCostPerCall,
+        totalCallMinutes: 0,
+        totalCallMinutesTrend: 0,
+        numberOfCalls: data.numberOfCalls,
+        numberOfCallsTrend: 0,
       };
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       throw error;
     }
   },
+  async getCalls(startDate?: Date, endDate?: Date): Promise<CallData[]> {
+    try {
+      console.log(startDate?.toISOString(), endDate?.toISOString());
+      var vapiClients= vapiClient;
+      vapiClients.defaults.headers.common['createdAtGe'] = startDate?.toISOString();
+      vapiClients.defaults.headers.common['createdAtLe'] = endDate?.toISOString();
+
+      const response = await vapiClients.get('/call');
+
+      return (response.data || []).map((call: any) => ({
+        id: call.id || '',
+        type: call.type || '',
+        startedAt: call.startedAt || call.createdAt || new Date().toISOString(),
+        endedAt: call.endedAt || call.createdAt || new Date().toISOString(),
+        cost: call.costBreakdown?.total || 0,
+        status: call.status || 'unknown',
+        endedReason: call.endedReason,
+        costBreakdown: call.costBreakdown || {
+          transport: 0,
+          stt: 0,
+          llm: 0,
+          tts: 0,
+          vapi: 0,
+          total: 0
+        },
+        duration: call.startedAt && call.endedAt ? 
+          Math.round((new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000) : 0,
+        createdAt: call.createdAt || new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error('Error fetching calls:', error);
+      // Return empty array instead of throwing to handle API errors gracefully
+      return [];
+    }
+  }
 };

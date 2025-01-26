@@ -12,7 +12,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const { isCollapsed } = useLayoutStore();
 
   return (
-    <div className="flex min-h-screen bg-gray-50/50">
+    <div className="flex min-h-screen bg-white">
       <Sidebar />
       
       {/* Main Content */}
@@ -21,7 +21,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           'flex-1',
           'transition-all duration-300 ease-in-out',
           isCollapsed ? 'ml-[5rem]' : 'ml-64',
-          'px-6 py-6'
+          'px-6 py-6',
+          'bg-white'
         )}
         layout
       >

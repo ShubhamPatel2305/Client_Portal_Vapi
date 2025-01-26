@@ -1,71 +1,63 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Card } from '@tremor/react';
 import { Tab } from '@headlessui/react';
-import { Settings2, MessageSquare, Mic, PlayCircle, Sparkles, RefreshCw } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Settings2, MessageSquare, Mic, PlayCircle, Sparkles, RefreshCw, ChevronDown, ChevronUp, HelpCircle, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { produce } from 'immer';
 import { set } from 'lodash';
+import toast, { Toaster } from 'react-hot-toast';
+import axios from 'axios';
+// Components
 import ModelConfig from '../components/vapi/ModelConfig';
 import VoiceConfig from '../components/vapi/VoiceConfig';
 import TranscriberConfig from '../components/vapi/TranscriberConfig';
 import FunctionConfig from '../components/vapi/FunctionConfig';
 import MetricsDisplay from '../components/vapi/MetricsDisplay';
-import vapiService from '../services/vapiService';
 import { AdvancedSettings } from '../components/vapi/AdvancedSettings';
-import axios from 'axios';
-import toast, { Toaster } from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
+import vapiService from '../services/vapiService';
+import VoiceAssistant from '../components/VoiceAssistant';
+import { getApiKey, getAssistantId } from '../services/credentialsService';
+import { Assistants } from '@vapi-ai/server-sdk/api/resources/assistants/client/Client';
+import { any, string } from 'zod';
 
-interface AssistantConfig {
-  model: {
+export interface Assistant {
+  id: string;
+  orgId?: string;
+  name: string;
+  voice: {
+    voiceId: string;
     provider: string;
-    name: string;
-    firstMessage: string;
-    systemPrompt: string;
+  };
+  model: {
+    model: string;
+    provider: string;
     temperature: number;
-    emotionRecognition: boolean;
+    systemPrompt: string;
+    emotionRecognitionEnabled: boolean;
   };
   transcriber: {
-    provider: string;
     language: string;
-    model: string;
-    enhancedFiltering: boolean;
-  };
-  voice: {
     provider: string;
-    voice: string;
-    speed: number;
   };
-  functions: {
-    enabled: boolean;
-    list: string[];
-  };
-  dialKeypadFunctionEnabled: boolean;
-  endCallFunctionEnabled: boolean;
   forwardingPhoneNumber: string;
-  hipaaEnabled: boolean;
-  voicemailMessage: string;
-  endCallMessage: string;
   recordingEnabled: boolean;
-  videoRecordingEnabled: boolean;
+  firstMessage: string;
+  voicemailMessage: string;
+  endCallFunctionEnabled: boolean;
+  endCallMessage: string;
+  dialKeypadFunctionEnabled: boolean;
+  hipaaEnabled: boolean;
   silenceTimeoutSeconds: number;
   maxDurationSeconds: number;
-  waitSeconds: number;
-  smartEndpointingEnabled: boolean;
-  privacy?: {
-    hipaa?: boolean;
-    audioRecording?: boolean;
-    videoRecording?: boolean;
+  backgroundSound: string;
+  backchannelingEnabled: boolean;
+  backgroundDenoisingEnabled: boolean;
+  artifactPlan: {
+    videoRecordingEnabled: boolean;
   };
-  startSpeaking?: {
-    waitSeconds?: number;
-    smartEndpointing?: boolean;
-    onPunctuationSeconds?: number;
-    onNoPunctuationSeconds?: number;
-    onNumberSeconds?: number;
-  };
-  messages?: {
-    voicemail?: string;
+  startSpeakingPlan: {
+    waitSeconds: number;
+    smartEndpointingEnabled: boolean;
   };
 }
 
@@ -75,42 +67,44 @@ interface MetricsState {
 }
 
 export default function Vapi() {
-  const [config, setConfig] = useState<AssistantConfig>({
+  const [config, setConfig] = useState({
+    id: '',
+    name: '',
+    voice: {
+      voiceId: '',
+      provider: ''
+    },
     model: {
-      provider: 'openai',
-      name: 'gpt-4',
-      firstMessage: '',
-      systemPrompt: '',
+      model: '',
+      provider: '',
       temperature: 0.7,
-      emotionRecognition: false
+      systemPrompt: '',
+      emotionRecognitionEnabled: false
     },
     transcriber: {
-      provider: 'whisper',
-      language: 'en',
-      model: 'base',
-      enhancedFiltering: false
+      language: '',
+      provider: ''
     },
-    voice: {
-      provider: 'elevenlabs',
-      voice: 'rachel',
-      speed: 1.0
-    },
-    functions: {
-      enabled: false,
-      list: []
-    },
-    dialKeypadFunctionEnabled: false,
-    endCallFunctionEnabled: false,
     forwardingPhoneNumber: '',
-    hipaaEnabled: true,
-  voicemailMessage: "Please drop a message",
-  endCallMessage: "Thank you for contacting.",
-  recordingEnabled: false,
-  videoRecordingEnabled: false,
-  silenceTimeoutSeconds: 30,
-  maxDurationSeconds: 600,
-  waitSeconds: 60,
-  smartEndpointingEnabled: true
+    recordingEnabled: false,
+    firstMessage: '',
+    voicemailMessage: '',
+    endCallFunctionEnabled: false,
+    endCallMessage: '',
+    dialKeypadFunctionEnabled: false,
+    hipaaEnabled: false,
+    silenceTimeoutSeconds: 1800,
+    maxDurationSeconds: 3600,
+    backgroundSound: '',
+    backchannelingEnabled: false,
+    backgroundDenoisingEnabled: false,
+    artifactPlan: {
+      videoRecordingEnabled: false
+    },
+    startSpeakingPlan: {
+      waitSeconds: 1,
+      smartEndpointingEnabled: true
+    }
   });
 
   const [metrics, setMetrics] = useState<MetricsState>({
@@ -122,55 +116,71 @@ export default function Vapi() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSendingToVapi, setIsSendingToVapi] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+
+  const toggleInstructions = () => {
+    setIsInstructionsOpen(!isInstructionsOpen);
+  };
 
   const fetchAssistantData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      // Assuming you have an assistant ID, replace 'your-assistant-id' with the actual ID
-      const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d'; // You might want to get this from props or environment
-      const assistantData = await vapiService.getAssistant(assistantId);
-      console.log(assistantData);
-      
+      const assistantData = await vapiService.getAssistant(getAssistantId());
+      console.log('Assistant Data:', assistantData);
+
+      var sysPrompt = assistantData.model.systemPrompt;
+      if(!sysPrompt){
+        sysPrompt=assistantData.model.messages[0].content;
+        console.log('System Prompt:', sysPrompt);
+      }
+
       // Map the assistant data to your config structure
       setConfig(prevConfig => ({
         ...prevConfig,
+        id: assistantData.id || prevConfig.id,
+        name: assistantData.name || prevConfig.name,
+        voice: {
+          voiceId: assistantData.voice?.voiceId || prevConfig.voice.voiceId,
+          provider: assistantData.voice?.provider || prevConfig.voice.provider
+        },
         model: {
+          model: assistantData.model?.model || prevConfig.model.model,
           provider: assistantData.model?.provider || prevConfig.model.provider,
-          name: assistantData.model?.model || prevConfig.model.name,
-          firstMessage: assistantData.firstMessage || prevConfig.model.firstMessage,
-          systemPrompt: assistantData.model?.systemPrompt || prevConfig.model.systemPrompt,
           temperature: assistantData.model?.temperature ?? prevConfig.model.temperature,
-          emotionRecognition: assistantData.model?.emotionRecognitionEnabled ?? prevConfig.model.emotionRecognition
+          systemPrompt: sysPrompt,
+          emotionRecognitionEnabled: assistantData.model?.emotionRecognitionEnabled ?? prevConfig.model.emotionRecognitionEnabled
         },
         transcriber: {
-          provider: assistantData.transcriber?.provider || prevConfig.transcriber.provider,
           language: assistantData.transcriber?.language || prevConfig.transcriber.language,
-          model: assistantData.transcriber?.model || prevConfig.transcriber.model,
-          enhancedFiltering: assistantData.backgroundDenoisingEnabled ?? prevConfig.transcriber.enhancedFiltering
+          provider: assistantData.transcriber?.provider || prevConfig.transcriber.provider
         },
-        voice: {
-          provider: assistantData.voice?.provider || prevConfig.voice.provider,
-          voice: assistantData.voice?.voiceId || prevConfig.voice.voice,
-          speed: prevConfig.voice.speed // Keep existing if not in API
+        forwardingPhoneNumber: assistantData.forwardingPhoneNumber || prevConfig.forwardingPhoneNumber,
+        recordingEnabled: assistantData.recordingEnabled ?? prevConfig.recordingEnabled,
+        firstMessage: assistantData.firstMessage || prevConfig.firstMessage,
+        voicemailMessage: assistantData.voicemailMessage || prevConfig.voicemailMessage,
+        endCallFunctionEnabled: assistantData.endCallFunctionEnabled ?? prevConfig.endCallFunctionEnabled,
+        endCallMessage: assistantData.endCallMessage || prevConfig.endCallMessage,
+        dialKeypadFunctionEnabled: assistantData.dialKeypadFunctionEnabled ?? prevConfig.dialKeypadFunctionEnabled,
+        hipaaEnabled: assistantData.hipaaEnabled ?? prevConfig.hipaaEnabled,
+        silenceTimeoutSeconds: assistantData.silenceTimeoutSeconds ?? prevConfig.silenceTimeoutSeconds,
+        maxDurationSeconds: assistantData.maxDurationSeconds ?? prevConfig.maxDurationSeconds,
+        backgroundSound: assistantData.backgroundSound || prevConfig.backgroundSound,
+        backchannelingEnabled: assistantData.backchannelingEnabled ?? prevConfig.backchannelingEnabled,
+        backgroundDenoisingEnabled: assistantData.backgroundDenoisingEnabled ?? prevConfig.backgroundDenoisingEnabled,
+        artifactPlan: {
+          videoRecordingEnabled: assistantData.artifactPlan?.videoRecordingEnabled ?? prevConfig.artifactPlan.videoRecordingEnabled
         },
-        functions: prevConfig.functions,
-        dialKeypadFunctionEnabled: assistantData.dialKeypadFunctionEnabled,
-        endCallFunctionEnabled: assistantData.endCallFunctionEnabled,
-        forwardingPhoneNumber: assistantData.forwardingPhoneNumber,
-        hipaaEnabled: assistantData.hipaaEnabled,
-        voicemailMessage: assistantData.messages?.voicemail || prevConfig.voicemailMessage,
-        endCallMessage: assistantData.messages?.endCall || prevConfig.endCallMessage,
-        recordingEnabled: assistantData.recordingEnabled,
-        videoRecordingEnabled: assistantData.videoRecordingEnabled,
-        silenceTimeoutSeconds: assistantData.silenceTimeoutSeconds,
-        maxDurationSeconds: assistantData.maxDurationSeconds,
-        waitSeconds: assistantData.waitSeconds,
-        smartEndpointingEnabled: assistantData.smartEndpointingEnabled
+        startSpeakingPlan: {
+          waitSeconds: assistantData.startSpeakingPlan?.waitSeconds ?? prevConfig.startSpeakingPlan.waitSeconds,
+          smartEndpointingEnabled: assistantData.startSpeakingPlan?.smartEndpointingEnabled ?? prevConfig.startSpeakingPlan.smartEndpointingEnabled
+        }
       }));
 
       // Get real-time metrics
-      const metrics = await vapiService.getRealTimeMetrics(assistantId);
+      const metrics = await vapiService.getRealTimeMetrics(getAssistantId());
       setMetrics({
         cost: metrics?.cost || 0.08,
         latency: metrics?.latency || 950
@@ -194,56 +204,101 @@ export default function Vapi() {
     setTimeout(() => setIsRefreshing(false), 500);
   }, [fetchAssistantData]);
 
-  const calculateMetrics = (config: AssistantConfig) => {
-    let baseCost = 0.08;
-    let baseLatency = 950;
+  const calculateMetrics = (config: Assistant) => {
+    let cost = 0.08; // Default cost
+    let latency = 950; // Default latency
 
-    // Model-based calculations
+    // Model-based calculations for OpenAI
     if (config.model.provider === 'openai') {
-      if (config.model.name === 'gpt-4') {
-        baseCost *= 1.5;
-        baseLatency += 200;
-      } else if (config.model.name === 'gpt-3.5-turbo') {
-        baseCost *= 0.8;
-        baseLatency -= 100;
+      switch (config.model.model) {
+        case 'gpt-4o':
+          cost = 0.15;
+          latency = 900;
+          break;
+        case 'gpt-4o-mini':
+          cost = 0.12;
+          latency = 800;
+          break;
+        case 'o1-preview':
+          cost = 0.10;
+          latency = 700;
+          break;
+        case 'o1-mini':
+          cost = 0.08;
+          latency = 650;
+          break;
+        case 'gpt-4o-realtime-preview-2024-12-17':
+          cost = 0.13;
+          latency = 750;
+          break;
+        case 'gpt-4o-mini-realtime-preview-2024-12-17':
+          cost = 0.11;
+          latency = 700;
+          break;
+        case 'gpt-3.5-turbo':
+          cost = 0.06;
+          latency = 600;
+          break;
       }
     }
-
-    // Transcriber-based calculations
-    if (config.transcriber.provider === 'whisper') {
-      if (config.transcriber.model === 'enhanced') {
-        baseCost += 0.02;
-        baseLatency += 100;
-      } else if (config.transcriber.model === 'premium') {
-        baseCost += 0.05;
-        baseLatency += 200;
+    // Model-based calculations for Anthropic
+    else if (config.model.provider === 'anthropic') {
+      switch (config.model.model) {
+        case 'claude-3-opus-20240229':
+          cost = 0.15;
+          latency = 1000;
+          break;
+        case 'claude-3-sonnet-20240229':
+          cost = 0.12;
+          latency = 1000;
+          break;
+        case 'claude-3-haiku-20240307':
+          cost = 0.10;
+          latency = 1000;
+          break;
+        case 'claude-3-5-sonnet-20240620':
+        case 'claude-3-5-sonnet-20241022':
+          cost = 0.11;
+          latency = 1000;
+          break;
+        case 'claude-3-5-haiku-20241022':
+          cost = 0.09;
+          latency = 1000;
+          break;
       }
-    }
-
-    // Voice-based calculations
-    if (config.voice.provider === 'elevenlabs') {
-      baseCost += 0.03;
-      baseLatency += config.voice.speed > 1 ? 50 : 0;
     }
 
     return {
-      cost: Number(baseCost.toFixed(2)),
-      latency: Math.round(baseLatency)
+      cost: Number(cost.toFixed(2)),
+      latency: Math.round(latency)
     };
   };
 
-  const handleConfigChange = (key: string, value: any, options?: { skipMetricsUpdate: boolean }) => {
-    const newConfig = produce<AssistantConfig>((draft) => {
-      set(draft, key, value);
-      return draft;
-    })(config);
-    
-    setConfig(newConfig);
+  const handleConfigChange = useCallback((path: string, value: any) => {
+    setConfig(prevConfig => {
+      const newConfig = produce(prevConfig, draft => {
+        set(draft, path, value);
+      });
+      setHasUnsavedChanges(true);
+      return newConfig;
+    });
+  }, []);
 
-    // Only update metrics if skipMetricsUpdate is not true
-    if (!options?.skipMetricsUpdate) {
-      const newMetrics = calculateMetrics(newConfig);
-      setMetrics(newMetrics);
+  const handleMetricsChange = (newMetrics: { cost: number; latency: number }) => {
+    setMetrics(newMetrics);
+  };
+
+  const handleUpdateAIAgent = async () => {
+    try {
+      if (!config.id) return;
+      const { id, ...configWithoutId } = config;
+
+      await vapiService.updateAssistant(id, configWithoutId);
+      setHasUnsavedChanges(false);
+      toast.success('AI Agent updated successfully');
+    } catch (error) {
+      console.error('Error updating AI agent:', error);
+      toast.error('Failed to update AI agent');
     }
   };
 
@@ -252,26 +307,22 @@ export default function Vapi() {
     setIsSendingToVapi(true);
   
     try {
-      // Get the API key from environment variables
-      const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
-      
       // Prepare the config object for the API
       const apiConfig = {
         model: {
+          model: config.model.model,
           provider: config.model.provider,
-          model: config.model.name,
           systemPrompt: config.model.systemPrompt,
           temperature: config.model.temperature,
-          emotionRecognitionEnabled: config.model.emotionRecognition
+          emotionRecognitionEnabled: config.model.emotionRecognitionEnabled
         },
         transcriber: {
-          provider: config.transcriber.provider,
           language: config.transcriber.language,
-          model: config.transcriber.model
+          provider: config.transcriber.provider
         },
         voice: {
-          provider: config.voice.provider,
-          voiceId: config.voice.voice
+          voiceId: config.voice.voiceId,
+          provider: config.voice.provider
         },
         dialKeypadFunctionEnabled: config.dialKeypadFunctionEnabled,
         endCallFunctionEnabled: config.endCallFunctionEnabled,
@@ -280,19 +331,25 @@ export default function Vapi() {
         voicemailMessage: config.voicemailMessage,
         endCallMessage: config.endCallMessage,
         recordingEnabled: config.recordingEnabled,
-        silenceTimeoutSeconds: config.silenceTimeoutSeconds,
+        silenceTimeoutSeconds: config.silenceTimeoutSeconds,  
         maxDurationSeconds: config.maxDurationSeconds,
-        firstMessage: config.model.firstMessage
+        firstMessage: config.firstMessage,
+        artifactPlan: {
+          videoRecordingEnabled: config.artifactPlan.videoRecordingEnabled
+        },
+        startSpeakingPlan: {
+          waitSeconds: config.startSpeakingPlan.waitSeconds,
+          smartEndpointingEnabled: config.startSpeakingPlan.smartEndpointingEnabled
+        }
       };
   
       // Perform the API call
-      const assistantId = '56c7f0f1-a068-4f7f-ae52-33bb86c3896d';
       const response = await axios.patch(
-        `https://api.vapi.ai/assistant/${assistantId}`, 
+        `https://api.vapi.ai/assistant/${getAssistantId()}`, 
         apiConfig,
         {
           headers: {
-            'Authorization': `Bearer ${VAPI_API_KEY}`,
+            'Authorization': `Bearer ${getApiKey()}`,
             'Content-Type': 'application/json'
           }
         }
@@ -376,134 +433,155 @@ export default function Vapi() {
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Assistant Configuration</h1>
-        <div className="flex gap-2">
-          {error && (
-            <div className="text-sm text-red-500 mr-2">
-            </div>
-          )}
+    <div className="flex flex-col space-y-6 max-w-7xl mx-auto px-4 py-8">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-gray-900">Assistant Configuration</h1>
+          <p className="text-gray-600">Configure your AI assistant's behavior and capabilities</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={toggleInstructions}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl shadow-sm hover:bg-teal-100 hover:border-teal-300 transition-all duration-200"
+          >
+            <HelpCircle className="w-5 h-5 text-teal-600" />
+            <span className="font-medium">Configuration Instructions</span>
+          </motion.button>
+          <VoiceAssistant config={config} />
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleRefresh}
-            disabled={isLoading}
-            className={`inline-flex items-center px-4 py-3 bg-gray-100 text-gray-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ${isRefreshing || isLoading ? 'animate-spin' : ''} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className="p-2.5 bg-teal-50 border border-teal-200 text-teal-700 rounded-xl shadow-sm hover:bg-teal-100 hover:border-teal-300 transition-all duration-200"
           >
-            <RefreshCw className="w-5 h-5" />
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => {
-              console.log('Testing assistant...', config);
-            }}
-            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <Sparkles className="w-5 h-5 mr-2" />
-            <span>Test Assistant</span>
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin text-teal-600' : ''}`} />
           </motion.button>
         </div>
       </div>
 
-      <Card className="mt-6">
-        <MetricsDisplay cost={metrics.cost} latency={metrics.latency} />
-        
-        <Tab.Group>
-          <Tab.List className="flex space-x-4 border-b border-gray-200 mb-6">
-            {tabs.map((tab) => (
-              <Tab
-                key={tab.id}
-                className={({ selected }) =>
-                  `flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none ${
-                    selected
-                      ? 'text-blue-600 border-b-2 border-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`
-                }
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </Tab>
-            ))}
-          </Tab.List>
+      <AnimatePresence>
+        {isInstructionsOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+            onClick={toggleInstructions}
+          >
+            <motion.div
+              className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl border border-gray-100"
+              onClick={(e) => e.stopPropagation()}
+              initial={{ y: -20 }}
+              animate={{ y: 0 }}
+              exit={{ y: -20 }}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+                  <Settings2 className="w-6 h-6 mr-3 text-blue-600" />
+                  Configuration Instructions
+                </h3>
+                <button
+                  onClick={toggleInstructions}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                >
+                  <ChevronDown className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-6">
+                <ul className="space-y-4">
+                  <li className="flex items-start space-x-4">
+                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">1</span>
+                    <div className="flex-1 pt-1">
+                      <p className="text-gray-700">Customize your AI assistant's settings using the tabs below</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-4">
+                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">2</span>
+                    <div className="flex-1 pt-1">
+                      <p className="text-gray-700">Adjust model, transcriber, voice, and function settings</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-4">
+                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">3</span>
+                    <div className="flex-1 pt-1">
+                      <p className="text-gray-700">Configure advanced options for enhanced control</p>
+                    </div>
+                  </li>
+                  <li className="flex items-start space-x-4">
+                    <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">4</span>
+                    <div className="flex-1 pt-1">
+                      <p className="text-gray-700">Click "Update AI Agent" to apply your changes</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          <Tab.Panels>
-            <Tab.Panel>
-              <ModelConfig config={config} onConfigChange={handleConfigChange} />
-            </Tab.Panel>
-            <Tab.Panel>
-              <TranscriberConfig config={config} onConfigChange={handleConfigChange} />
-            </Tab.Panel>
-            <Tab.Panel>
-              <VoiceConfig />
-            </Tab.Panel>
-            <Tab.Panel>
-              <FunctionConfig config={config} onConfigChange={handleConfigChange} />
-            </Tab.Panel>
-            <Tab.Panel>
-              <AdvancedSettings config={config} onConfigChange={handleConfigChange} />
-            </Tab.Panel>
-          </Tab.Panels>
-        </Tab.Group>
-      </Card>
+      <MetricsDisplay cost={metrics.cost} latency={metrics.latency} />
+        
+      <Tab.Group>
+        <Tab.List className="flex space-x-4 border-b border-gray-200 mb-6">
+          {tabs.map((tab) => (
+            <Tab
+              key={tab.id}
+              className={({ selected }) =>
+                `flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-t-lg focus:outline-none ${
+                  selected
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`
+              }
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </Tab>
+          ))}
+        </Tab.List>
+
+        <Tab.Panels>
+          <Tab.Panel>
+            <ModelConfig
+              config={config}
+              onConfigChange={handleConfigChange}
+              onMetricsChange={handleMetricsChange}
+              hasUnsavedChanges={hasUnsavedChanges}
+            />
+          </Tab.Panel>
+          <Tab.Panel>
+            <TranscriberConfig config={config} onConfigChange={handleConfigChange} />
+          </Tab.Panel>
+          <Tab.Panel>
+            <VoiceConfig />
+          </Tab.Panel>
+          <Tab.Panel>
+            <FunctionConfig config={config} onConfigChange={handleConfigChange} />
+          </Tab.Panel>
+          <Tab.Panel>
+            <AdvancedSettings config={config} onConfigChange={handleConfigChange} />
+          </Tab.Panel>
+        </Tab.Panels>
+      </Tab.Group>
 
       <div className="fixed bottom-6 right-6 flex space-x-4">
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            console.log('Saving as draft...', config);
-          }}
-          className="px-6 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-            />
-          </svg>
-          <span>Save Draft</span>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleSendToVapi}
-          disabled={isSendingToVapi}
-          className={`px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2 ${isSendingToVapi ? 'opacity-50 cursor-not-allowed' : ''}`}
+          onClick={handleUpdateAIAgent}
+          disabled={isSendingToVapi || !hasUnsavedChanges}
+          className={`px-6 py-2.5 bg-gradient-to-r ${hasUnsavedChanges ? 'from-amber-600 to-orange-600' : 'from-indigo-600 to-blue-600'} text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-2 ${(isSendingToVapi || !hasUnsavedChanges) ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {isSendingToVapi ? (
-            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M14 5l7 7m0 0l-7 7m7-7H3"
-              />
-            </svg>
+            <RefreshCw className="h-5 w-5" />
           )}
-          <span>{isSendingToVapi ? 'Updating...' : 'Send to Vapi'}</span>
+          <span>{hasUnsavedChanges ? 'Update AI Agent' : 'No Changes'}</span>
         </motion.button>
-
-        // Add Toaster component in your main render
         <Toaster />
       </div>
     </div>

@@ -77,7 +77,7 @@ export default function ExportModal({ isOpen, onClose, data }: ExportModalProps)
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence >
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -89,7 +89,7 @@ export default function ExportModal({ isOpen, onClose, data }: ExportModalProps)
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl"
+            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl z-50"
           >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-semibold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">

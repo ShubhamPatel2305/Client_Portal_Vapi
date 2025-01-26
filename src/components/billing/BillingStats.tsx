@@ -1,67 +1,118 @@
 import React from 'react';
-import { Card, Metric, Text } from '@tremor/react';
-import { PhoneCall, PhoneIncoming, PhoneOutgoing, Clock } from 'lucide-react';
+import { Card, Grid, Metric, Text, ProgressBar } from '@tremor/react';
+import { PhoneCall, Clock, DollarSign, Calculator } from 'lucide-react';
+import type { CallData } from '../../lib/api/vapiService';
+import type { Color } from '@tremor/react';
 
 interface BillingStatsProps {
   data: {
     calls: {
+      details: CallData[];
       total: number;
-      inbound: number;
-      outbound: number;
+      totalCost: number;
       avgDuration: number;
-      cost: string;
+      avgCost: number;
     };
   };
 }
 
+const formatDuration = (seconds: number): string => {
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = (seconds % 60).toFixed(1);
+  return `${minutes}m ${remainingSeconds}s`;
+};
+
+const calculateStats = (calls: CallData[]) => {
+  if (calls.length === 0) {
+    return {
+      total: 0,
+      totalCost: 0,
+      avgDuration: 0,
+      avgCost: 0
+    };
+  }
+
+  const totalCalls = calls.length;
+  const totalCost = calls.reduce((sum, call) => sum + (call.cost || 0), 0);
+  const totalDuration = calls.reduce((sum, call) => sum + (call.duration || 0), 0);
+
+  return {
+    total: totalCalls,
+    totalCost: totalCost,
+    avgDuration: totalDuration / totalCalls,
+    avgCost: totalCost / totalCalls
+  };
+};
+
 export function BillingStats({ data }: BillingStatsProps) {
-  const stats = [
+  const stats = calculateStats(data.calls.details);
+  const maxCallsLimit = 1000; // Adjust this based on your actual limit
+
+  const metrics: Array<{
+    title: string;
+    metric: string | number;
+    icon: any;
+    color: Color;
+    progress?: number;
+    description?: string;
+  }> = [
     {
       title: 'Total Calls',
-      metric: data.calls.total.toLocaleString(),
+      metric: stats.total,
       icon: PhoneCall,
-      color: 'bg-blue-500'
+      color: 'blue',
+      progress: (stats.total / maxCallsLimit) * 100,
+      description: `${((stats.total / maxCallsLimit) * 100).toFixed(1)}% of limit`
     },
     {
-      title: 'Inbound Calls',
-      metric: data.calls.inbound.toLocaleString(),
-      icon: PhoneIncoming,
-      color: 'bg-green-500'
+      title: 'Total Cost',
+      metric: `$${stats.totalCost.toFixed(2)}`,
+      icon: DollarSign,
+      color: 'emerald',
+      description: 'Total spent this month'
     },
     {
-      title: 'Outbound Calls',
-      metric: data.calls.outbound.toLocaleString(),
-      icon: PhoneOutgoing,
-      color: 'bg-purple-500'
+      title: 'Average Cost per Call',
+      metric: `$${stats.avgCost.toFixed(3)}`,
+      icon: Calculator,
+      color: 'indigo',
+      description: 'Average cost per call'
     },
     {
       title: 'Average Duration',
-      metric: `${Math.floor(data.calls.avgDuration / 60)}m ${data.calls.avgDuration % 60}s`,
+      metric: formatDuration(stats.avgDuration),
       icon: Clock,
-      color: 'bg-orange-500'
-    }
+      color: 'amber',
+      description: 'Average call duration'
+    },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-      {stats.map((stat, index) => (
-        <Card 
-          key={index}
-          className="transform transition-all duration-200 hover:scale-105 hover:shadow-lg"
-          decoration="top"
-          decorationColor={stat.color.replace('bg-', '')}
-        >
+    <Grid numItemsSm={2} numItemsLg={4} className="gap-6">
+      {metrics.map((item) => (
+        <Card key={item.title} decoration="top" decorationColor={item.color}>
           <div className="flex items-center justify-between">
-            <div>
-              <Text className="text-gray-600">{stat.title}</Text>
-              <Metric className="mt-2 text-2xl">{stat.metric}</Metric>
-            </div>
-            <div className={`p-3 rounded-full ${stat.color} bg-opacity-10`}>
-              <stat.icon className={`w-6 h-6 ${stat.color.replace('bg-', 'text-')}`} />
+            <div className="flex items-center space-x-4">
+              <div className={`p-2 rounded-lg bg-${item.color}-100`}>
+                <item.icon className="w-6 h-6" style={{ color: `var(--${item.color}-500)` }} />
+              </div>
+              <div>
+                <Text>{item.title}</Text>
+                <Metric>{item.metric}</Metric>
+                {item.description && (
+                  <Text className="mt-1 text-gray-500">{item.description}</Text>
+                )}
+              </div>
             </div>
           </div>
+          {item.progress !== undefined && (
+            <ProgressBar value={item.progress} color={item.color} className="mt-3" />
+          )}
         </Card>
       ))}
-    </div>
+    </Grid>
   );
 }

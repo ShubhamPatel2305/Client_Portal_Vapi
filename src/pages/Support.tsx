@@ -21,6 +21,10 @@ const supportSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   companyName: z.string().min(2, 'Company name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email'),
+  phone: z.string()
+    .min(10, 'Phone number must be at least 10 digits')
+    .max(15, 'Phone number must not exceed 15 digits')
+    .regex(/^[0-9+\-\s()]*$/, 'Please enter a valid phone number'),
   subject: z.string().min(5, 'Subject must be at least 5 characters'),
   message: z.string().min(10, 'Message must be at least 10 characters'),
   urgency: z.enum(['low', 'medium', 'high']),
@@ -51,6 +55,7 @@ export default function Support() {
         from_name: data.name,
         company_name: data.companyName,
         from_email: data.email,
+        phone_number: data.phone,
         subject: data.subject,
         message: data.message,
         urgency: data.urgency,
@@ -111,23 +116,30 @@ export default function Support() {
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            <Card 
-              className="p-6 text-center hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
-              decoration="left"
-              decorationColor="blue"
+            <a 
+              href="https://wa.me/919313045439" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block"
             >
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 400 }}
+              <Card 
+                className="p-6 text-center hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
+                decoration="left"
+                decorationColor="blue"
               >
-                <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <MessageCircle className="w-8 h-8 text-blue-600" />
-                </div>
-              </motion.div>
-              <h3 className="font-semibold text-lg mb-2">Chat With Us</h3>
-              <p className="text-gray-600">Available 24/7 for support</p>
-            </Card>
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  <div className="bg-gradient-to-br from-blue-100 to-blue-200 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <MessageCircle className="w-8 h-8 text-blue-600" />
+                  </div>
+                </motion.div>
+                <h3 className="font-semibold text-lg mb-2">Chat With Us</h3>
+                <p className="text-gray-600">Available 24/7 for support</p>
+              </Card>
+            </a>
           </motion.div>
           
           <motion.div
@@ -135,29 +147,40 @@ export default function Support() {
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            <Card 
-              className="p-6 text-center hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
-              decoration="left"
-              decorationColor="green"
+            <a 
+              href="mailto:acctopedge@gmail.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block"
             >
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 400 }}
+              <Card 
+                className="p-6 text-center hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
+                decoration="left"
+                decorationColor="green"
               >
-                <div className="bg-gradient-to-br from-green-100 to-green-200 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <Mail className="w-8 h-8 text-green-600" />
-                </div>
-              </motion.div>
-              <h3 className="font-semibold text-lg mb-2">Email Us</h3>
-              <p className="text-gray-600">Get response within 24 hours</p>
-            </Card>
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  <div className="bg-gradient-to-br from-green-100 to-green-200 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <Mail className="w-8 h-8 text-green-600" />
+                  </div>
+                </motion.div>
+                <h3 className="font-semibold text-lg mb-2">Email Us</h3>
+                <p className="text-gray-600">Get response within 24 hours</p>
+              </Card>
+            </a>
           </motion.div>
           
           <motion.div
             initial={{ x: 50, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.5 }}
+            onClick={() => {
+              const modal = document.getElementById('callModal');
+              if (modal) modal.style.display = 'flex';
+            }}
           >
             <Card 
               className="p-6 text-center hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
@@ -176,6 +199,51 @@ export default function Support() {
               <h3 className="font-semibold text-lg mb-2">Call Us</h3>
               <p className="text-gray-600">Mon-Fri from 8am to 5pm</p>
             </Card>
+          </motion.div>
+        </div>
+
+        {/* Call Modal */}
+        <div
+          id="callModal"
+          className="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              const modal = document.getElementById('callModal');
+              if (modal) modal.style.display = 'none';
+            }
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-lg p-8 max-w-md w-full mx-4"
+          >
+            <h3 className="text-2xl font-bold mb-4 text-center">Contact Numbers</h3>
+            <div className="space-y-4">
+              <a
+                href="tel:+919313045439"
+                className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-colors"
+              >
+                <span className="font-medium">+91 9313 045 439</span>
+                <Phone className="w-5 h-5 text-purple-600" />
+              </a>
+              <a
+                href="tel:+919484607042"
+                className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-colors"
+              >
+                <span className="font-medium">+91 9484 607 042</span>
+                <Phone className="w-5 h-5 text-purple-600" />
+              </a>
+            </div>
+            <button
+              onClick={() => {
+                const modal = document.getElementById('callModal');
+                if (modal) modal.style.display = 'none';
+              }}
+              className="mt-6 w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              Close
+            </button>
           </motion.div>
         </div>
 
@@ -202,7 +270,8 @@ export default function Support() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Name and Company Name Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Name</label>
                   <div className="relative">
@@ -244,15 +313,16 @@ export default function Support() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Email and Phone Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Email</label>
                   <div className="relative">
                     <input
                       {...register("email")}
+                      type="email"
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                       placeholder="your@email.com"
-                      type="email"
                     />
                     {errors.email && (
                       <motion.span
@@ -267,28 +337,51 @@ export default function Support() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Message</label>
+                  <label className="block text-sm font-medium text-gray-700">Phone Number</label>
                   <div className="relative">
-                    <textarea
-                      {...register("message")}
-                      rows={4}
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200 resize-none"
-                      placeholder="Describe your issue or question..."
+                    <input
+                      {...register("phone")}
+                      type="tel"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                      placeholder="+91 XXXXX XXXXX"
                     />
-                    {errors.message && (
+                    {errors.phone && (
                       <motion.span
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         className="text-xs text-red-500 mt-1"
                       >
-                        {errors.message.message}
+                        {errors.phone.message}
                       </motion.span>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Message Field */}
+              <div className="space-y-2 mb-6">
+                <label className="block text-sm font-medium text-gray-700">Message</label>
+                <div className="relative">
+                  <textarea
+                    {...register("message")}
+                    rows={4}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200 resize-none"
+                    placeholder="Describe your issue or question..."
+                  />
+                  {errors.message && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-xs text-red-500 mt-1"
+                    >
+                      {errors.message.message}
+                    </motion.span>
+                  )}
+                </div>
+              </div>
+
+              {/* Subject, Urgency, and Request Type Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Subject</label>
                   <div className="relative">

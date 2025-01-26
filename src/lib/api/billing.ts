@@ -73,10 +73,13 @@ export const billingApi = {
     const mockData = {
       invoiceNumber: `INV-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
       client: {
-        name: 'Acme Corporation',
+        name: 'John Smith',
+        companyName: 'Acme Corporation',
         address: '123 Business Avenue',
         city: 'San Francisco, CA 94105',
-        email: 'billing@acme.com'
+        email: 'john.smith@acme.com',
+        phone: '+1 (415) 555-0123',
+        taxId: 'US-123456789'
       },
       date: format(new Date(2024, month, 1), 'yyyy-MM-dd'),
       dueDate: format(new Date(2024, month + 1, 1), 'yyyy-MM-dd'),
@@ -84,18 +87,21 @@ export const billingApi = {
       services: [
         {
           name: 'Voice API Calls',
+          description: 'Outbound and inbound voice calls with high-quality audio',
           quantity: 653,
           rate: 0.25,
           amount: 163.25
         },
         {
           name: 'SMS Messages',
+          description: 'Global SMS messaging with delivery tracking',
           quantity: 245,
           rate: 0.15,
           amount: 36.75
         },
         {
           name: 'Premium Support',
+          description: '24/7 priority technical support and consulting',
           quantity: 1,
           rate: 45.00,
           amount: 45.00
@@ -103,7 +109,9 @@ export const billingApi = {
       ],
       subtotal: 245.00,
       tax: 24.50,
-      total: 269.50
+      total: 269.50,
+      paymentMethod: 'Credit Card ending in 4242',
+      notes: 'Payment is due within 30 days. Please include invoice number with your payment.'
     };
 
     const doc = generateInvoice(mockData);

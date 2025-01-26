@@ -26,18 +26,18 @@ export const DownloadActions: React.FC<DownloadActionsProps> = ({ monthlyData, s
     document.body.removeChild(a);
   };
 
-  const handleDownloadReport = async () => {
-    try {
-      setIsLoading(prev => ({ ...prev, report: true }));
-      const blob = await billingApi.downloadReport(selectedMonth);
-      const filename = `billing-report-${format(new Date(2024, selectedMonth), 'MMMM-yyyy')}.pdf`;
-      await downloadFile(blob, filename);
-    } catch (error) {
-      console.error('Error downloading report:', error);
-    } finally {
-      setIsLoading(prev => ({ ...prev, report: false }));
-    }
-  };
+  // const handleDownloadReport = async () => {
+  //   try {
+  //     setIsLoading(prev => ({ ...prev, report: true }));
+  //     const blob = await billingApi.downloadReport(selectedMonth);
+  //     const filename = `billing-report-${format(new Date(2024, selectedMonth), 'MMMM-yyyy')}.pdf`;
+  //     await downloadFile(blob, filename);
+  //   } catch (error) {
+  //     console.error('Error downloading report:', error);
+  //   } finally {
+  //     setIsLoading(prev => ({ ...prev, report: false }));
+  //   }
+  // };
 
   const handleDownloadInvoice = async () => {
     try {
@@ -54,7 +54,7 @@ export const DownloadActions: React.FC<DownloadActionsProps> = ({ monthlyData, s
 
   return (
     <div className="flex gap-4 mt-4">
-      <motion.button
+      {/* <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={handleDownloadReport}
@@ -65,7 +65,7 @@ export const DownloadActions: React.FC<DownloadActionsProps> = ({ monthlyData, s
       >
         <Download className="w-4 h-4" />
         {isLoading.report ? 'Generating Report...' : 'Download Report'}
-      </motion.button>
+      </motion.button> */}
 
       <motion.button
         whileHover={{ scale: 1.02 }}

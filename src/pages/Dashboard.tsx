@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { fetchVapiCalls, VapiCall } from '../services/vapiService';
+import { fetchVapiCalls, VapiCall, fetchAnalytics } from '../services/vapiService';
 import {
   Calendar,
   Bell,
@@ -47,8 +47,8 @@ import {
 } from '@tremor/react';
 
 import ExportModal from '../components/modals/ExportModal';
-import ScheduleModal from '../components/modals/ScheduleModal';
-import AlertSettingsModal from '../components/modals/AlertSettingsModal';
+// import ScheduleModal from '../components/modals/ScheduleModal';
+// import AlertSettingsModal from '../components/modals/AlertSettingsModal';
 import CallDetailsModal from '../components/modals/CallDetailsModal';
 import { fetchDashboardData } from '../lib/api';
 import { Analytics } from '../lib/api/vapiService';
@@ -103,22 +103,18 @@ const formatDateTime = (dateString: string): string => {
 
 const getCurrentMonthKey = (): string => {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
 };
 
 const getAllMonthsInRange = (data: Analytics | null): string[] => {
-  if (!data || !data.monthlyCallData) return [];
+  if (!data?.monthlyTrend) return [];
   
-  return data.monthlyCallData
-    .map(item => item.date)
-    .filter((date): date is string => {
-      if (!date) return false;
-      // Validate date format
-      if (!/^\d{4}-\d{2}$/.test(date)) return false;
-      const [year, month] = date.split('-').map(num => parseInt(num, 10));
-      return !isNaN(year) && !isNaN(month) && month >= 1 && month <= 12;
-    })
-    .sort((a, b) => a.localeCompare(b));
+  return [...new Set(data.monthlyTrend.map(item => item.date))]
+    .sort((a, b) => {
+      const [yearA, monthA] = a.split('-').map(Number);
+      const [yearB, monthB] = b.split('-').map(Number);
+      return (yearB * 12 + monthB) - (yearA * 12 + monthA);
+    });
 };
 
 const containerVariants = {
@@ -150,8 +146,8 @@ const calculateTotals = (monthlyData: any[] | undefined) => {
 
   const totals = monthlyData.reduce(
     (acc, curr) => ({
-      totalCalls: acc.totalCalls + curr.totalCalls,
-      totalCost: acc.totalCost + curr.totalCost,
+      totalCalls: acc.totalCalls + curr.calls,
+      totalCost: acc.totalCost + curr.cost,
     }),
     { totalCalls: 0, totalCost: 0 }
   );
@@ -167,9 +163,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [showAlertModal, setShowAlertModal] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonthKey());
+  // const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // const [showAlertModal, setShowAlertModal] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [calls, setCalls] = useState<VapiCall[]>([]);
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -356,22 +352,24 @@ export default function Dashboard() {
       >
         <div className="relative">
           <div className="relative space-y-2">
-            <Title className="text-4xl font-bold">
-              {user?.displayName ? `${getFirstName(user.displayName)}'s Dashboard` : 'Dashboard'}
-            </Title>
-            <Text className="text-lg text-gray-500 flex items-center gap-2">
-              <span>Last updated: {format(new Date(), 'MMM d, yyyy, h:mm a')}</span>
-              {user?.email && (
-                <span className="text-sm px-3 py-1 rounded-full">
-                  {user.email}
-                </span>
-              )}
-            </Text>
+            <div className="flex flex-col">
+              <Title className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                {user?.displayName ? `${getFirstName(user.displayName)}'s Dashboard` : 'Dashboard'}
+              </Title>
+              <Text className="text-lg text-gray-500 flex items-center gap-2 mt-2">
+                <span className="font-medium">Last updated: {format(new Date(), 'MMM d, yyyy, h:mm a')}</span>
+                {user?.email && (
+                  <span className="text-sm px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full font-medium">
+                    {user.email}
+                  </span>
+                )}
+              </Text>
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          {/* <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button
               icon={Calendar}
               variant="secondary"
@@ -388,7 +386,7 @@ export default function Dashboard() {
             >
               Alerts
             </Button>
-          </motion.div>
+          </motion.div> */}
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Button
               icon={Download}
@@ -602,7 +600,7 @@ export default function Dashboard() {
                           <div key={item.name} className="flex items-center gap-2">
                             <div 
                               className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: index === 0 ? "#8b5cf6" : index === 1 ? "#10b981" : "#f59e0b" }}
+                              style={{ backgroundColor: index === 0 ? "#ef4444" : index === 1 ? "#10b981" : "#f59e0b" }}
                             />
                             <Text className="text-sm text-gray-600">
                               {item.name.split('-')[0]}
@@ -619,7 +617,7 @@ export default function Dashboard() {
                           category="value"
                           index="name"
                           valueFormatter={(value: number) => `${value.toFixed(1)}%`}
-                          colors={["#8b5cf6", "#10b981", "#f59e0b"]}
+                          colors={["#ef4444", "#10b981", "#f59e0b"]}
                           showAnimation={true}
                           className="h-[300px]"
                           showTooltip={false}
@@ -635,7 +633,7 @@ export default function Dashboard() {
                             >
                               <div 
                                 className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: index === 0 ? "#8b5cf6" : index === 1 ? "#10b981" : "#f59e0b" }}
+                                style={{ backgroundColor: index === 0 ? "#ef4444" : index === 1 ? "#10b981" : "#f59e0b" }}
                               />
                               <div className="flex items-center gap-2">
                                 <Text className="text-gray-900 font-medium">
@@ -694,59 +692,66 @@ export default function Dashboard() {
                     </div>
 
                     <div className="h-[300px] w-full pl-4" style={{ minWidth: '200px', minHeight: '200px' }}>
-                      <AreaChart
-                        className="h-full w-full"
-                        data={data?.monthlyCallData?.map(item => ({
-                          date: formatMonthYear(item.date),
-                          calls: item.totalCalls,
-                          cost: item.totalCost
-                        })) || []}
-                        index="date"
-                        categories={["calls", "cost"]}
-                        colors={["indigo", "emerald"]}
-                        valueFormatter={(value: number) => value.toFixed(2)}
-                        showLegend={false}
-                        showAnimation={true}
-                        showGridLines={false}
-                        showXAxis={true}
-                        showYAxis={true}
-                        yAxisWidth={40}
-                        startEndOnly={false}
-                        autoMinValue={true}
-                        connectNulls={true}
-                        onValueChange={(v) => console.log(v)}
-                        customTooltip={({ payload }) => {
-                          if (!payload || !Array.isArray(payload) || payload.length === 0) return null;
-                          
-                          const date = payload[0]?.payload?.date;
-                          const calls = payload[0]?.value;
-                          const cost = payload[1]?.value;
-                          
-                          if (!date || typeof calls === 'undefined') return null;
+                      {data?.monthlyTrend && data.monthlyTrend.length > 0 ? (
+                        <AreaChart
+                          className="h-full w-full"
+                          data={data.monthlyTrend
+                            .filter(item => !selectedMonth || item.date === selectedMonth)
+                            .sort((a, b) => a.date.localeCompare(b.date))
+                            .map(item => ({
+                              date: formatMonthYear(item.date),
+                              calls: item.calls,
+                              cost: item.cost
+                            }))}
+                          index="date"
+                          categories={["calls", "cost"]}
+                          colors={["indigo", "emerald"]}
+                          valueFormatter={(value: number) => value.toFixed(2)}
+                          showLegend={false}
+                          showAnimation={true}
+                          showGridLines={false}
+                          showXAxis={true}
+                          showYAxis={true}
+                          yAxisWidth={40}
+                          startEndOnly={false}
+                          autoMinValue={true}
+                          connectNulls={true}
+                          onValueChange={(v) => console.log(v)}
+                          customTooltip={({ payload }) => {
+                            if (!payload || !Array.isArray(payload) || payload.length === 0) return null;
+                            
+                            const date = payload[0]?.payload?.date;
+                            const calls = payload[0]?.value;
+                            const cost = payload[1]?.value;
+                            
+                            if (!date || typeof calls === 'undefined') return null;
 
-                          return (
-                            <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-lg">
-                              <div className="font-medium text-gray-900">
-                                {date}
-                              </div>
-                              <div className="mt-1 font-medium text-gray-600">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                                  <Text className="text-sm text-gray-600">
-                                    {calls} calls
-                                  </Text>
+                            return (
+                              <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-lg">
+                                <div className="font-medium text-gray-900">
+                                  {date}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                                  <Text className="text-sm text-gray-600">
-                                    ${typeof cost === 'number' ? cost.toFixed(2) : '0.00'} cost
-                                  </Text>
+                                <div className="mt-1 font-medium text-gray-600">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                                    <Text className="text-sm text-gray-600">
+                                      {calls} calls
+                                    </Text>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                                    <Text className="text-sm text-gray-600">
+                                      ${typeof cost === 'number' ? cost.toFixed(2) : '0.00'} cost
+                                    </Text>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        }}
-                      />
+                            );
+                          }}
+                        />
+                      ) : (
+                        <NoDataMessage />
+                      )}
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-4">
@@ -800,37 +805,38 @@ export default function Dashboard() {
                       <Title className="text-2xl font-bold text-gray-900">Cost Analysis</Title>
                       <Text className="text-sm text-gray-600">Monthly breakdown of calls and costs</Text>
                     </div>
-                    <Select
-                      value={selectedMonth}
-                      onValueChange={setSelectedMonth}
-                      className="w-40"
-                    >
-                      <SelectItem value="">All Months</SelectItem>
-                      {getAllMonthsInRange(data).map((monthKey) => (
-                        <SelectItem key={monthKey} value={monthKey}>
-                          {formatMonthYear(monthKey)}
-                        </SelectItem>
-                      ))}
-                    </Select>
+                    <div className="flex items-center gap-4">
+                      <Select
+                        value={selectedMonth}
+                        onValueChange={setSelectedMonth}
+                        className="w-48"
+                      >
+                        <SelectItem value="">All Months</SelectItem>
+                        {getAllMonthsInRange(data).map((monthKey) => (
+                          <SelectItem 
+                            key={monthKey} 
+                            value={monthKey}
+                          >
+                            {formatMonthYear(monthKey)}
+                          </SelectItem>
+                        ))}
+                      </Select>
+                    </div>
                   </div>
 
                   <div className="h-[300px] w-full pl-4" style={{ minWidth: '200px', minHeight: '200px' }}>
-                    {data?.monthlyCallData && data.monthlyCallData.length > 0 ? (
+                    {data?.monthlyTrend && data.monthlyTrend.length > 0 ? (
                       <BarChart
                         className="h-full w-full"
-                        data={data.monthlyCallData
+                        data={data.monthlyTrend
                           .filter(item => !selectedMonth || item.date === selectedMonth)
+                          .sort((a, b) => a.date.localeCompare(b.date))
                           .map(item => ({
                             month: formatMonthYear(item.date),
-                            calls: item.totalCalls,
-                            cost: item.totalCost,
+                            calls: item.calls,
+                            cost: item.cost,
                             rawDate: item.date
-                          }))
-                          .sort((a, b) => {
-                            const [yearA, monthA] = a.rawDate.split('-').map(Number);
-                            const [yearB, monthB] = b.rawDate.split('-').map(Number);
-                            return (yearA * 12 + monthA) - (yearB * 12 + monthB);
-                          })}
+                          }))}
                         index="month"
                         categories={["calls", "cost"]}
                         colors={["violet", "emerald"]}
@@ -844,7 +850,7 @@ export default function Dashboard() {
                                 minimumFractionDigits: 2,
                               }).format(value);
                         }}
-                        showLegend={false}
+                        showLegend={true}
                         showAnimation={true}
                         showGridLines={false}
                         showXAxis={true}
@@ -885,8 +891,8 @@ export default function Dashboard() {
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                     {(() => {
                       const filteredData = selectedMonth
-                        ? data?.monthlyCallData?.filter(item => item.date === selectedMonth)
-                        : data?.monthlyCallData;
+                        ? data?.monthlyTrend?.filter(item => item.date === selectedMonth)
+                        : data?.monthlyTrend;
                       
                       const totals = calculateTotals(filteredData);
 
@@ -1230,7 +1236,7 @@ export default function Dashboard() {
         onClose={() => setShowExportModal(false)}
         data={data}
       />
-      <ScheduleModal 
+      {/* <ScheduleModal 
         isOpen={showScheduleModal} 
         onClose={() => setShowScheduleModal(false)}
         onSchedule={(scheduleData) => {
@@ -1245,7 +1251,7 @@ export default function Dashboard() {
           console.log('Alert settings:', alertSettings);
           setShowAlertModal(false);
         }}
-      />
+      /> */}
       {selectedCall && (
         <CallDetailsModal
           call={selectedCall}

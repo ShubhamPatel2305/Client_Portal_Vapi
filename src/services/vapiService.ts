@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { VapiClient } from '@vapi-ai/server-sdk';
+import { getApiKey } from './credentialsService';
 
 const VAPI_BASE_URL = 'https://api.vapi.ai';
-const VAPI_API_KEY = import.meta.env.VITE_VAPI_API_KEY;
 
 interface Cost {
   type: string;
@@ -212,17 +212,17 @@ interface ListCallsParams {
   updatedAtLe?: string;
 }
 
-const vapiClient = axios.create({
-  baseURL: VAPI_BASE_URL,
-  headers: {
-    'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
+const getHeaders = () => ({
+  'Authorization': `Bearer ${getApiKey()}`,
+  'Content-Type': 'application/json'
 });
 
 export const fetchVapiCalls = async (params?: ListCallsParams): Promise<VapiCall[]> => {
   try {
-    const response = await vapiClient.get('/call', { params });
+    const response = await axios.get(`${VAPI_BASE_URL}/call`, { 
+      params,
+      headers: getHeaders()
+    });
     return response.data;
   } catch (error) {
     console.error('Error fetching Vapi calls:', error);
@@ -230,82 +230,7 @@ export const fetchVapiCalls = async (params?: ListCallsParams): Promise<VapiCall
   }
 };
 
-export const fetchAnalytics = async (timeRange: string) => {
-  try {
-    const response = await fetch('https://api.vapi.ai/analytics', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${VAPI_API_KEY}`,
-      },
-      body: JSON.stringify({ timeRange }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch analytics data');
-    }
-
-    const data = await response.json();
-    
-    // Process and transform the data
-    return {
-      totalCalls: data.totalCalls || 0,
-      totalDuration: data.totalDuration || 0,
-      averageCallDuration: data.averageCallDuration || 0,
-      totalCost: data.totalCost || 0,
-      successRate: data.successRate || 0,
-      callsByDay: data.callsByDay || [],
-      callOutcomes: data.callOutcomes || [],
-      customerSentiment: data.customerSentiment || [],
-      commonTopics: data.commonTopics || [],
-      peakCallTimes: data.peakCallTimes || [],
-    };
-  } catch (error) {
-    console.error('Error fetching analytics:', error);
-    throw error;
-  }
-};
-
-const vapiAxios = axios.create({
-  baseURL: VAPI_BASE_URL,
-  headers: {
-    'Authorization': `Bearer ${VAPI_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-});
-
-const client = new VapiClient({ token: VAPI_API_KEY });
-
-const mockAnalyticsData = {
-  total_calls: 150,
-  total_duration: 12000, // in seconds
-  average_duration: 80, // in seconds
-  total_cost: 300, // in currency
-  calls_by_status: {
-    completed: 120,
-    failed: 20,
-    unknown: 10,
-  },
-  calls_by_date: {
-    '2024-12-05': 20,
-    '2024-12-06': 30,
-    '2024-12-07': 25,
-    '2024-12-08': 15,
-    '2024-12-09': 10,
-    '2024-12-10': 20,
-    '2024-12-11': 30,
-  },
-  average_latency: 200, // in milliseconds
-  calls: Array(150).fill({
-    duration: 80,
-    cost: 2,
-    status: 'completed',
-    created_at: '2024-12-05T10:00:00Z',
-    latency: 200,
-  }),
-};
-
-export const vapiService = {
+const vapiService = {
   // Get list of calls with pagination and filters
   getCalls: async (params: {
     limit?: number;
@@ -314,44 +239,39 @@ export const vapiService = {
     end_date?: string;
     status?: string;
   }) => {
-    try {
-      const response = await vapiAxios.get('/v1/calls', {
-        params: {
-          ...params,
-          limit: params.limit || 100,
-          offset: params.offset || 0
-        }
-      });
-      return {
-        calls: response.data.data || [],
-        total: response.data.total || 0
-      };
-    } catch (error: any) {
-      console.error('Error fetching calls:', error);
-      throw new Error(error.response?.data?.message || 'Failed to fetch calls');
-    }
+    const response = await axios.get(`${VAPI_BASE_URL}/calls`, {
+      params,
+      headers: getHeaders()
+    });
+    return response.data;
   },
 
   // Get specific call details
   getCall: async (callId: string) => {
-    const response = await vapiAxios.get(`/calls/${callId}`);
+    const response = await axios.get(`${VAPI_BASE_URL}/call/${callId}`, {
+      headers: getHeaders()
+    });
     return response.data;
   },
 
   // Get assistant details
   getAssistant: async (assistantId: string) => {
-    try {
-      const response = await client.assistants.get(assistantId);
-      return response;
-    } catch (error) {
-      console.error('Error fetching assistant details:', error);
-      throw error;
-    }
+    const response = await axios.get(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
+      headers: getHeaders()
+    });
+    console.log(response.data)
+    return response.data;
   },
 
   // Update assistant configuration
   updateAssistant: async (assistantId: string, data: any) => {
-    const response = await vapiAxios.patch(`/assistant/${assistantId}`, data);
+    const response = await axios.patch(
+      `${VAPI_BASE_URL}/assistant/${assistantId}`,
+      data,
+      {
+        headers: getHeaders()
+      }
+    );
     return response.data;
   },
 
@@ -361,28 +281,67 @@ export const vapiService = {
     end_date?: string;
     assistant_id?: string;
   }) => {
-    try {
-      // Return mock data instead of making an API call
-      return mockAnalyticsData;
-    } catch (error: any) {
-      console.error('Error fetching analytics:', error);
-      throw new Error(error.response?.data?.message || 'Failed to fetch analytics');
-    }
+    const response = await axios.get(`${VAPI_BASE_URL}/analytics`, {
+      params,
+      headers: getHeaders()
+    });
+    return response.data;
   },
 
   // Send message to assistant
   sendMessage: async (assistantId: string, message: string) => {
-    const response = await vapiAxios.post(`/assistants/${assistantId}/messages`, {
-      message,
-    });
+    const response = await axios.post(
+      `${VAPI_BASE_URL}/assistant/${assistantId}/message`,
+      { message },
+      {
+        headers: getHeaders()
+      }
+    );
     return response.data;
   },
 
   // Get real-time metrics
   getRealTimeMetrics: async (assistantId: string) => {
-    const response = await vapiAxios.get(`/assistants/${assistantId}/metrics`);
+    const response = await axios.get(`${VAPI_BASE_URL}/assistant/${assistantId}`, {
+      headers: getHeaders()
+    });
     return response.data;
   },
+};
+
+// Get all call data with analytics
+export const getCallData = async (timeRange: string = '7d') => {
+  try {
+    const now = new Date();
+    let startDate = new Date();
+
+    switch (timeRange) {
+      case '7d':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(now.getDate() - 90);
+        break;
+      case 'all':
+        startDate = new Date(0); // Beginning of time
+        break;
+    }
+
+    const response = await axios.get(`${VAPI_BASE_URL}/call`, {
+      params: {
+        createdAtGe: startDate.toISOString(),
+        createdAtLe: now.toISOString(),
+      },
+      headers: getHeaders()
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching call data:', error);
+    throw error;
+  }
 };
 
 export default vapiService;

@@ -3,14 +3,15 @@ import { Analytics } from '../../lib/api/vapiService';
 import PerformanceReport from './PerformanceReport';
 import CallAnalyticsReport from './CallAnalyticsReport';
 import UserEngagementReport from './UserEngagementReport';
-import RegionalReport from './RegionalReport';
+// import RegionalReport from './RegionalReport';
 
 interface ComprehensiveReportProps {
   data: Analytics | null;
   loading: boolean;
+  dateRange: { from: Date; to: Date };
 }
 
-export default function ComprehensiveReport({ data, loading }: ComprehensiveReportProps) {
+export default function ComprehensiveReport({ data, loading, dateRange }: ComprehensiveReportProps) {
   if (!data) return null;
 
   return (
@@ -68,12 +69,12 @@ export default function ComprehensiveReport({ data, loading }: ComprehensiveRepo
             <Tab>Performance</Tab>
             <Tab>Call Analytics</Tab>
             <Tab>User Engagement</Tab>
-            <Tab>Regional</Tab>
+            {/* <Tab>Regional</Tab> */}
           </TabList>
           <TabPanels>
             <TabPanel>
               <div className="mt-4">
-                <PerformanceReport data={data} loading={loading} />
+                <PerformanceReport data={data} dateRange={dateRange} />
               </div>
             </TabPanel>
             <TabPanel>
@@ -88,7 +89,7 @@ export default function ComprehensiveReport({ data, loading }: ComprehensiveRepo
             </TabPanel>
             <TabPanel>
               <div className="mt-4">
-                <RegionalReport data={data} loading={loading} />
+                {/* <RegionalReport data={data} loading={loading} /> */}
               </div>
             </TabPanel>
           </TabPanels>
